@@ -153,13 +153,46 @@ EIA releases the weekly figures on Wednesdays, for the week that ended the previ
 
 **Single abnormal weeks stay in.** Winter Storm Uri cut utilization to 56% in February 2021. That week sits at the low end of the utilization range through February 2026 and shows as a dip in the band each February. It is kept, because removing single weeks by judgment would invite cherry-picking.
 
+## Backtest: does the score say anything about the next four weeks?
+
+`backtest.py` follows METHODS.md section 3:
+- Every week from 2010 is scored using the default range, with 2020 left out.
+- Each score is dated to its Wednesday release, never the Friday the week ended, so the test uses only information that was public at the time.
+- The return runs from the price on release day to the price four weeks later.
+
+**Result: the score did not predict four-week price changes after tight weeks.**
+
+| 2010 to 2026 | WTI: tight | WTI: loose | WTI: all | Brent: tight | Brent: loose | Brent: all |
+|---|---|---|---|---|---|---|
+| Weeks | 177 | 167 | 869 | 177 | 167 | 869 |
+| Average four-week return | +0.45% | +4.87% | +0.77% | +0.71% | +5.51% | +0.92% |
+| Median | +0.10% | +3.13% | +0.92% | −0.68% | +3.81% | +0.67% |
+| Hit rate (share of rises) | 50% | 66% | 55% | 46% | 71% | 54% |
+
+**Tight weeks.** After a tight week, prices did no better than after an average week.
+- Average returns were within half a point of all weeks, and the hit rates were slightly lower.
+- With 2026 left out, tight weeks did slightly *worse* than average: WTI −0.98% against +0.51%.
+- **The every-fourth-week check**, which keeps windows from overlapping, gives about 40 tight windows. The tight-minus-all gap changes sign depending on which week the sampling starts on: +0.03%, −1.60%, −0.23% or +0.61% for WTI.
+- A typical four-week move is about ±12%, so gaps this size are noise.
+
+**Loose weeks.** After a loose week, prices rose more often than average. This is the more interesting finding, but it rests on very few episodes.
+- 2020 alone contributes 37 loose weeks, with an average WTI return of +14.6%: the rebound from the pandemic low.
+- Without 2020, loose weeks still averaged +2.1% for WTI (+3.1% for Brent), against +0.55% for all weeks. That is about one typical sampling error.
+- Almost all loose weeks fall in four periods: 2010 to 2011, 2016 to 2017, 2020 and 2021. Each was a recovery from a price slump.
+- So "loose stocks, then prices rise" is better read as prices recovering after a glut than as a usable signal.
+
+**Checks.** Dating every release to Thursday, to allow for holiday weeks when EIA publishes a day late, gives the same picture: WTI tight +0.50% against all +0.76%. Tight weeks cluster in 2014, 2018, 2022, 2025 and 2026. The 2014 tight weeks were followed by that year's price collapse.
+
+**What this means.** The score describes the physical market. It does not forecast prices, which fits METHODS.md section 7: supply conditions have historically explained less of oil price movement than demand and fear of shortage. The result is reported as found, and the method was not tuned after seeing it.
+
 ## Limits
 
 From METHODS.md section 8. Items marked *(later version)* describe parts of the project not built yet.
 
 - The score uses US data only and measures US conditions, not global ones.
-- Weekly figures are estimates and are sometimes revised. The backtest uses revised data. *(Backtest: version 1.5)*
-- Forward windows overlap, which overstates how much evidence there is. *(Backtest: version 1.5)*
+- Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
+- Forward windows overlap, which overstates how much evidence there is. The every-fourth-week check is reported alongside.
+- Tight and loose weeks come in clusters, so a handful of episodes drive the backtest result.
 - The event table is small, and other news moves prices on the same days. *(Event study: version 2)*
 - The 2026 Strait of Hormuz episode is far larger than any other event and dominates averages. Results are shown with and without it. *(Event study: version 2)*
 - The event table was drafted with AI assistance and hand-checked. The accuracy rate is reported. *(Version 2. Not yet checked.)*
@@ -181,6 +214,7 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python check_routes.py   # confirm every series is on its route
 .venv/bin/python fetch.py          # download the seven series into DuckDB
 .venv/bin/python calculate.py      # five-year comparison, score, and spread
+.venv/bin/python backtest.py       # backtest (METHODS.md section 3)
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -198,6 +232,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `seasonal.py` | Five-year comparison (METHODS.md section 1) |
 | `score.py` | Tightness score and weekly spread (METHODS.md section 2) |
 | `calculate.py` | Runs the comparison, score, and spread and saves them |
+| `compare_2020.py` | Shows what leaving 2020 out of the range changes |
+| `backtest.py` | Four-week price changes after tight, loose, and all weeks |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for the schema, the API paging, the comparison, and the score |
 
@@ -206,6 +242,6 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | Version | Adds |
 |---|---|
 | 1 | This monitor |
-| 1.5 | Backtest: what WTI and Brent did over four weeks after tight weeks compared with all weeks, dated to the Wednesday release to avoid look-ahead bias |
+| 1.5 | Backtest (done, results above) |
 | 2 | Supply Disruption Event Study: hand-checked event table, price reactions over 1, 5 and 20 days, scenario lookup, map |
 | 3 | Rebuild in Palantir Foundry |
