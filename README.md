@@ -216,20 +216,53 @@ So the curve is a **research comparison for 2010 to April 2024**, not a gauge. I
 
 | Platform | Topic | Markets | Daily readings | From |
 |---|---|---|---|---|
-| Polymarket | Gulf conflict | 834 | 22,019 | June 2025 |
-| Polymarket | Oil price | 332 | 10,015 | Dec 2025 |
-| Kalshi | Gulf conflict | 141 | 4,882 | Jan 2026 |
-| Kalshi | Oil price | 214 | 5,347 | Mar 2026 |
+| Polymarket | Gulf conflict | 834 | 24,544 | June 2025 |
+| Polymarket | Oil price | 332 | 11,457 | Dec 2025 |
+| Kalshi | Gulf conflict | 141 | 4,924 | Jan 2026 |
+| Kalshi | Oil price | 214 | 5,352 | Mar 2026 |
 
 1,374 of the 1,521 markets have already closed. Their history is kept because rows are only ever added or updated, never deleted.
 
 **Two object types.** `prediction_market` has one row per market, and `market_reading` has one row per market per day.
+
+**One calendar: US Eastern days.** A reading dated D is the market as of the end of D, New York time. The two platforms stamp days differently, and both had to be corrected:
+- **Kalshi** stamps each daily candle with its *end* time, which is Eastern midnight, so a candle is filed under the day before its stamp.
+- **Polymarket's** built-in daily points are 00:00 UTC snapshots, which is 8 p.m. Eastern the day before. Its prices are therefore fetched hourly, in 14-day ranges, and closed at Eastern midnight.
+
+Tests cover both sides of the daylight-saving change.
 
 **Data gaps**
 - **Polymarket daily volume.** Polymarket publishes daily prices but only all-time volume. Each run saves the all-time total, so daily Polymarket volume can be measured only from October 5, 2026 onward.
 - **Kalshi.** Kalshi gives daily volume for the full history. 922 Kalshi days have no price because nothing traded that day.
 
 **Privacy.** Only market-level fields are stored, and the tests check that platform address fields never reach a table. No trade-level or account data is requested. Activity is reported in aggregate only.
+
+## Unusual prediction market activity (expansion item 4)
+
+`unusual_activity.py` flags days when prediction market odds or volume moved far more than usual. It reports **aggregate counts and rates only**: it does not identify, name or accuse any account. All rules are in `activity.py` and were fixed before any results were seen.
+
+1. **A market is flagged on a day** when, against its own previous 30 days (at least 14 needed):
+   - its odds moved at least 10 percentage points **and** at least 4 times its typical daily move; or
+   - its volume was at least 5 times its typical day **and** at least 1,000.
+
+   The last 2 days before a market closes are skipped, because odds jump to 0 or 1 as a question resolves.
+2. **A day is unusual for a topic** when the share of that topic's active markets flagged that day is in the top 5% of days. Only days with at least 20 active markets count.
+3. **Comparison with events.** For each hand-checked event: was there an unusual day 4 to 2 days before the event date? This is compared with the base rate for any day, and reported with and without the 2026 war episode. Day −1 is skipped because Gulf time runs 7 to 8 hours ahead of New York, so a reaction can land on New York's day −1.
+
+**Results on October 5, 2026**
+
+| | Market-days evaluated | Odds flags | Volume flags |
+|---|---|---|---|
+| Kalshi, Gulf conflict | 3,151 | 53 | 309 |
+| Kalshi, oil price | 3,136 | 67 | 243 |
+| Polymarket, Gulf conflict | 12,023 | 347 | no daily volume yet |
+| Polymarket, oil price | 6,769 | 265 | no daily volume yet |
+
+- **Gulf conflict.** 13 unusual days out of 245, each with at least 16.1% of active markets flagged. The most unusual were May 23, April 7, February 28 and June 11, 2026.
+- **Oil price.** 12 unusual days out of 231, each with at least 20.4% of markets flagged. The most unusual were September 10, April 7, March 9 and February 2, 2026.
+- **Event comparison: not run yet.** No events are hand-checked, and unchecked events are never used. The comparison runs automatically once events are marked checked.
+
+**Reading these results.** An unusual day says only that markets moved together more than usual. Activity on or after an event is a reaction, not foresight. That is why the event comparison looks only at days 4 to 2 before, and always against the base rate.
 
 ## Backtest: does the score say anything about the next four weeks?
 
@@ -270,6 +303,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - The score uses US data only and measures US conditions, not global ones.
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
 - Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
+- Unusual-activity days show markets moving together. They do not show who traded or why, and activity on or after an event is a reaction. Days near the 20-market minimum rest on small counts.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
 - Forward windows overlap, which overstates how much evidence there is. The every-fourth-week check is reported alongside.
 - Tight and loose weeks come in clusters, so a handful of episodes drive the backtest result.
@@ -296,7 +330,8 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python calculate.py      # five-year comparison, score, and spread
 .venv/bin/python backtest.py       # backtest (METHODS.md section 3)
 .venv/bin/python curve_history.py  # futures curve vs score, history only
-.venv/bin/python fetch_markets.py  # prediction market odds (no key needed); re-run daily
+.venv/bin/python fetch_markets.py  # prediction market odds (no key needed); re-run daily, about 3 minutes
+.venv/bin/python unusual_activity.py  # unusual activity, aggregate only
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -319,7 +354,9 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `futures.py` | Futures curve gap and backwardation/contango state (history only) |
 | `curve_history.py` | How often the curve agreed with the score, 2010 to April 2024 |
 | `prediction_markets.py` | Polymarket and Kalshi clients and the market selection rule |
-| `fetch_markets.py` | Saves prediction market odds; add or update only, never delete |
+| `fetch_markets.py` | Saves prediction market odds; add or update only, never delete; re-runs fetch only recent days |
+| `activity.py` | Unusual-activity rules: market-day flags, unusual topic-days, event window |
+| `unusual_activity.py` | Aggregate report of unusual days and the comparison with hand-checked events |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 

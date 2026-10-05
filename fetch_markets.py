@@ -1,5 +1,7 @@
 """Download prediction market odds (Polymarket, Kalshi) into DuckDB. Expansion item 3.
 
+All dates are US Eastern days: a reading dated D is the market as of the end of D, New York time.
+
 Run: .venv/bin/python fetch_markets.py
 Safe to re-run, and meant to be re-run: rows are added or updated, never deleted, so a market
 that closes and drops off a platform's list keeps its history here. Each run also saves today's
@@ -49,30 +51,53 @@ def save_readings(con, readings):
 
 
 def readings_for(market, history, now):
-    """History rows plus today's snapshot row for one market."""
-    rows = []
+    """History rows plus today's snapshot, merged so each day appears exactly once.
+
+    Today usually appears in both the history and the snapshot. Two rows for one day in a single
+    save would collide and one would be lost, so the snapshot is folded into today's row: the
+    snapshot price is the more recent one, and only the snapshot has the all-time volume.
+    """
+    by_day = {}
     for day, value in history.items():
         price, volume = value if isinstance(value, tuple) else (value, None)
-        rows.append([market["market_key"], day, price, volume, None, now])
-    rows.append([market["market_key"], now.date(), market["_price_now"], None, market["total_volume"], now])
-    return rows
+        by_day[day] = [price, volume, None]
+    today = pm.today_eastern()
+    price, volume, _ = by_day.get(today, [None, None, None])
+    by_day[today] = [market["_price_now"] if market["_price_now"] is not None else price,
+                     volume, market["total_volume"]]
+    return [[market["market_key"], day, p, v, t, now] for day, (p, v, t) in sorted(by_day.items())]
+
+
+RECHECK_DAYS = 3  # re-fetch the last few saved days so late trades and today's partial day get updated
+
+
+def resume_from(con, markets):
+    """For each market, fetch history from a few days before its last saved reading (or from its open)."""
+    last = dict(con.execute("SELECT market_key, max(reading_date) FROM market_reading GROUP BY 1").fetchall())
+    for m in markets:
+        if m["market_key"] in last:
+            m["opened"] = max(m["opened"] or last[m["market_key"]],
+                              last[m["market_key"]] - dt.timedelta(days=RECHECK_DAYS))
+    return markets
 
 
 def run_platform(con, name, markets, history_of):
     now = dt.datetime.now(dt.UTC).replace(tzinfo=None)
-    print(f"{name}: {len(markets)} markets in scope")
+    print(f"{name}: {len(markets)} markets in scope", flush=True)
     if not markets:
         return
-    save_markets(con, markets)
+    save_markets(con, markets)   # saves the real open date before resume_from shortens the fetch
+    markets = resume_from(con, markets)
     readings, failed = [], 0
     for i, m in enumerate(markets, 1):
         try:
             readings.extend(readings_for(m, history_of(m), now))
         except Exception as e:  # one bad market must not stop the run
             failed += 1
-            print(f"  skipped {m['market_key']}: {type(e).__name__}")
+            status = getattr(getattr(e, "response", None), "status_code", "")
+            print(f"  skipped {m['market_key']}: {type(e).__name__} {status}")
         if i % 100 == 0:
-            print(f"  {i} of {len(markets)}")
+            print(f"  {i} of {len(markets)}", flush=True)
     save_readings(con, readings)
     print(f"  saved {len(readings)} daily readings, {failed} markets skipped")
 
@@ -80,7 +105,7 @@ def run_platform(con, name, markets, history_of):
 def main():
     con = db.connect()
     run_platform(con, "Polymarket", pm.poly_markets(),
-                 lambda m: pm.poly_history(m["_token"]) if m["_token"] else {})
+                 lambda m: pm.poly_history(m["_token"], m["opened"], m["closes"]) if m["_token"] else {})
     run_platform(con, "Kalshi", pm.kalshi_markets(),
                  lambda m: pm.kalshi_history(m["_series"], m["market_id"], m["opened"], m["closes"]))
     print(con.execute("""

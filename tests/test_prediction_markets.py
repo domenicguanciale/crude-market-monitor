@@ -49,18 +49,30 @@ class TestParsing(unittest.TestCase):
         stored = set(fetch_markets.MARKET_COLUMNS)
         self.assertFalse(any("0x" in str(row.get(c)) for c in stored))   # no address reaches a column
 
-    def test_polymarket_history_keeps_last_price_each_day(self):
-        t = int(dt.datetime(2026, 10, 5, 12, tzinfo=dt.UTC).timestamp())
-        history = pm.parse_poly_history([{"t": t + 60, "p": 0.185}, {"t": t, "p": 0.195}])
-        self.assertEqual(history, {D(2026, 10, 5): 0.185})
+    def test_polymarket_closes_each_eastern_day(self):
+        ts = lambda *a: int(dt.datetime(*a, tzinfo=dt.UTC).timestamp())
+        history = pm.parse_poly_history([
+            {"t": ts(2026, 10, 4, 3, 0), "p": 0.20},   # 11 p.m. Eastern, Oct 3: Oct 3's close
+            {"t": ts(2026, 10, 4, 12, 0), "p": 0.19},
+            {"t": ts(2026, 10, 5, 3, 0), "p": 0.185},  # 11 p.m. Eastern, Oct 4: Oct 4's close
+            {"t": ts(2026, 10, 5, 4, 0), "p": 0.17},   # midnight Eastern: already Oct 5
+        ])
+        self.assertEqual(history, {D(2026, 10, 3): 0.20, D(2026, 10, 4): 0.185, D(2026, 10, 5): 0.17})
 
-    def test_kalshi_candles(self):
-        t = int(dt.datetime(2026, 10, 4, tzinfo=dt.UTC).timestamp())
-        candles = [{"end_period_ts": t, "price": {"close_dollars": "0.7200"}, "volume_fp": "1520.00"},
-                   {"end_period_ts": t + 86400, "price": {}, "volume_fp": "0"}]   # no trade: no price
+    def test_kalshi_candle_is_filed_under_the_day_it_covers(self):
+        ts = lambda *a: int(dt.datetime(*a, tzinfo=dt.UTC).timestamp())
+        candles = [
+            # Summer: Eastern midnight is 04:00 UTC. Ending Oct 5 04:00 UTC covers Oct 4.
+            {"end_period_ts": ts(2026, 10, 5, 4), "price": {"close_dollars": "0.7200"}, "volume_fp": "549.65"},
+            # Winter: Eastern midnight is 05:00 UTC. Ending Jan 10 05:00 UTC covers Jan 9.
+            {"end_period_ts": ts(2026, 1, 10, 5), "price": {}, "volume_fp": "0"},   # no trade: no price
+        ]
         out = pm.parse_kalshi_candles(candles)
-        self.assertEqual(out[D(2026, 10, 4)], (0.72, 1520.0))
-        self.assertEqual(out[D(2026, 10, 5)], (None, 0.0))
+        self.assertEqual(out, {D(2026, 10, 4): (0.72, 549.65), D(2026, 1, 9): (None, 0.0)})
+
+    def test_eastern_date(self):
+        self.assertEqual(pm.eastern_date(dt.datetime(2026, 3, 1, 3, 0, tzinfo=dt.UTC)), D(2026, 2, 28))
+        self.assertEqual(pm.eastern_date(dt.datetime(2026, 3, 1, 6, 0, tzinfo=dt.UTC)), D(2026, 3, 1))
 
 
 class TestSaving(unittest.TestCase):
@@ -84,6 +96,21 @@ class TestSaving(unittest.TestCase):
         self.assertEqual(rows[0], (D(2026, 9, 1), 0.4, 100.0))        # September survived
         self.assertEqual(self.con.execute("SELECT status, result FROM prediction_market").fetchone(),
                          ("closed", "yes"))
+
+    def test_today_appears_once_with_snapshot_volume(self):
+        now = dt.datetime(2026, 10, 5, 12)
+        today = pm.today_eastern()
+        rows = fetch_markets.readings_for(self.market, {today: (0.55, 40.0), D(2026, 9, 1): (0.4, 100.0)}, now)
+        todays = [r for r in rows if r[1] == today]
+        self.assertEqual(len(todays), 1)
+        self.assertEqual(todays[0][2:5], [0.6, 40.0, 20000.0])   # snapshot price, candle volume, all-time total
+
+    def test_rerun_fetches_only_recent_days(self):
+        fetch_markets.save_markets(self.con, [self.market])
+        fetch_markets.save_readings(self.con, [["kalshi:X", D(2026, 9, 30), 0.5, None, None, dt.datetime(2026, 9, 30)]])
+        m = fetch_markets.resume_from(self.con, [dict(self.market)])[0]
+        self.assertEqual(m["opened"], D(2026, 9, 27))
+        self.assertEqual(self.con.execute("SELECT opened FROM prediction_market").fetchone()[0], D(2026, 3, 1))
 
     def test_update_fills_in_without_erasing(self):
         now = dt.datetime(2026, 10, 5, 12)

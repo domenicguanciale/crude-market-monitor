@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS disruption_event (
     bpd_offline     DOUBLE,           -- barrels per day offline
     physical_loss   BOOLEAN,          -- were barrels actually lost, or only at risk?
     facility_id     VARCHAR REFERENCES facility (facility_id),
-    week_ending     DATE              -- links the event to its weekly_reading
+    week_ending     DATE,             -- links the event to its weekly_reading
+    hand_checked    BOOLEAN DEFAULT FALSE,  -- only the user sets this; unchecked rows are never used downstream
+    episode         VARCHAR           -- e.g. 'iran_war_2026' for sub-events of one episode
 );
 
 -- Source: one citation backing one disruption event (filled in version 2)
@@ -116,10 +118,20 @@ CREATE TABLE IF NOT EXISTS market_reading (
 """
 
 
+# Columns added after a table was first created. CREATE TABLE IF NOT EXISTS does not add columns
+# to an existing table, so these are added here, once, without touching existing rows.
+UPGRADES = [
+    "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS hand_checked BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS episode VARCHAR",
+]
+
+
 def connect(path=DB_PATH):
-    """Open the database file (created if missing) and make sure all tables exist."""
+    """Open the database file (created if missing) and make sure all tables and columns exist."""
     con = duckdb.connect(str(path))
     con.execute(SCHEMA)
+    for statement in UPGRADES:
+        con.execute(statement)
     return con
 
 

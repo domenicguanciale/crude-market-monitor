@@ -85,14 +85,25 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Daily volume: Kalshi candles give it for the full history. Polymarket gives only all-time totals, so each run stores `total_volume` and daily Polymarket volume exists only from the first run onward (Oct 5, 2026).
 - Privacy: only the fields in `fetch_markets.MARKET_COLUMNS` and `READING_COLUMNS` are stored. Never store or request trade-level or account data (Polymarket's data-api trades include wallets).
 
+## Dates for prediction markets
+
+- All `market_reading` dates are US Eastern days: a reading dated D is the market as of the end of D in New York. Kalshi candles are filed under the Eastern day one second before their end stamp. Polymarket is fetched hourly in 14-day ranges and closed at Eastern midnight, because its daily points are 00:00 UTC snapshots.
+- Each day appears once per market: today's snapshot is merged into today's history row. Re-runs fetch only from 3 days before a market's last saved date. A closed market already saved through its close date is skipped.
+
+## Unusual activity (expansion item 4)
+
+- Rules in `activity.py`, fixed before results. Market-day flag: odds move ≥ max(0.10, 4 × median) or volume ≥ max(1,000, 5 × median), against the prior 30 days with at least 14 days of history. The last 2 days before close are skipped. Unusual topic-day: flagged share in the top 5% of days that have at least 20 active markets. Event window: day −4 to day −2 (day −1 skipped as a time-zone buffer), compared with the base rate.
+- Events come only from `disruption_event` rows WHERE `hand_checked`. Columns `hand_checked` (default false) and `episode` are added by `db.UPGRADES`. War episode label: `iran_war_2026`.
+- Report counts and rates only. Never list markets as suspicious, and never mention accounts.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets).
-- Next: 4 unusual activity (prioritize the 2026 Iran war and oil price levels), 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events).
+- Next: 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.
@@ -102,7 +113,7 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 
 ## Expansion rules (added Oct 5, 2026)
 
-- Teaching mode: before each item, ask the user one question about the existing code it touches. Wait, correct, then build. One item at a time: show the result, run the tests, commit, wait for approval.
+- Teaching mode ended Oct 5, 2026 at the user's request: no more teaching questions. Still one item at a time: show the result in plain language, run the tests, commit, push, and wait for approval.
 - Confirm every new data source on the live service (route or ID, access rules, whether a key is needed). If it is unavailable or paid, say so and skip it.
 - Each new object type gets its own table, and ONTOLOGY.md, CLAUDE.md and the README are updated as items land. Every calculation gets tests.
 - This is a market monitoring and research tool, not betting or trading advice. The README and the app must both say so. Public data only.

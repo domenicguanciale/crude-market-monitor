@@ -15,12 +15,29 @@ import datetime as dt
 import json
 import re
 import time
+from zoneinfo import ZoneInfo
 
 import requests
 
 POLY_GAMMA = "https://gamma-api.polymarket.com"
 POLY_CLOB = "https://clob.polymarket.com"
 KALSHI = "https://api.elections.kalshi.com/trade-api/v2"
+
+# One calendar for all prediction market data: US Eastern days. A reading dated D means
+# "as of the end of D, New York time". Kalshi's daily candles already end at Eastern midnight;
+# Polymarket's built-in daily points are 00:00 UTC snapshots (8 p.m. Eastern the day before),
+# so Polymarket is fetched hourly and closed at Eastern midnight instead.
+EASTERN = ZoneInfo("America/New_York")
+POLY_CHUNK_DAYS = 14   # longest hourly range Polymarket accepts in one request (30 is refused)
+
+
+def eastern_date(moment):
+    """The New York calendar date of a UTC moment."""
+    return moment.astimezone(EASTERN).date()
+
+
+def today_eastern():
+    return eastern_date(dt.datetime.now(dt.UTC))
 
 # ---------------------------------------------------------------- selection rule (fixed in advance)
 ACTIVE_FROM = dt.date(2026, 1, 1)   # market must close on or after this date
@@ -136,16 +153,27 @@ def poly_markets():
 
 
 def parse_poly_history(points):
-    """[{t: unix seconds, p: price}] -> {date: last price that day}."""
+    """Hourly [{t: unix seconds, p: price}] -> {Eastern date: last price at or before Eastern midnight}."""
     by_day = {}
     for point in sorted(points, key=lambda x: x["t"]):
-        by_day[dt.datetime.fromtimestamp(point["t"], dt.UTC).date()] = float(point["p"])
+        by_day[eastern_date(dt.datetime.fromtimestamp(point["t"], dt.UTC))] = float(point["p"])
     return by_day
 
 
-def poly_history(token):
-    d = _get(f"{POLY_CLOB}/prices-history", {"market": token, "interval": "max", "fidelity": 1440})
-    return parse_poly_history(d.get("history", []))
+def poly_history(token, opened, closes):
+    """Hourly prices fetched in 14-day ranges from open to close, closed at each Eastern midnight."""
+    start = dt.datetime.combine(opened or ACTIVE_FROM, dt.time(), dt.UTC) - dt.timedelta(days=1)
+    stop = min(dt.datetime.now(dt.UTC), dt.datetime.combine(closes, dt.time(), dt.UTC) + dt.timedelta(days=2))
+    points = []
+    while start < stop:
+        end = min(start + dt.timedelta(days=POLY_CHUNK_DAYS), stop)
+        lo, hi = int(start.timestamp()), int(end.timestamp())
+        d = _get(f"{POLY_CLOB}/prices-history",
+                 {"market": token, "startTs": lo, "endTs": hi, "fidelity": 60}, pause=0.05)
+        # Responses also append the current price; keep only points inside the range asked for
+        points.extend(p for p in d.get("history", []) if lo <= p["t"] < hi)
+        start = end
+    return parse_poly_history(points)
 
 
 # ---------------------------------------------------------------- Kalshi
@@ -201,10 +229,14 @@ def kalshi_markets():
 
 
 def parse_kalshi_candles(candles):
-    """Daily candles -> {date: (closing price, contracts traded that day)}."""
+    """Daily candles -> {Eastern date: (closing price, contracts traded that day)}.
+
+    A candle is stamped with its END time, which is Eastern midnight (04:00 or 05:00 UTC), so the
+    day it covers is the Eastern date one second before that stamp.
+    """
     out = {}
     for c in candles:
-        day = dt.datetime.fromtimestamp(c["end_period_ts"], dt.UTC).date()
+        day = eastern_date(dt.datetime.fromtimestamp(c["end_period_ts"] - 1, dt.UTC))
         price = _num((c.get("price") or {}).get("close_dollars"))
         out[day] = (price, _num(c.get("volume_fp") or c.get("volume")))
     return out
@@ -213,6 +245,8 @@ def parse_kalshi_candles(candles):
 def kalshi_history(series_ticker, ticker, opened, closes):
     start = dt.datetime.combine(opened or ACTIVE_FROM, dt.time(), dt.UTC)
     end = min(dt.datetime.now(dt.UTC), dt.datetime.combine(closes, dt.time(23, 59), dt.UTC))
+    if start >= end:   # closed market already saved through its close: nothing new to fetch
+        return {}
     d = _get(f"{KALSHI}/series/{series_ticker}/markets/{ticker}/candlesticks",
              {"start_ts": int(start.timestamp()), "end_ts": int(end.timestamp()), "period_interval": 1440})
     return parse_kalshi_candles(d.get("candlesticks", []))
