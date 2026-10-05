@@ -52,6 +52,7 @@ The last two are additions to the original four. Section 8 of PROJECT_BRIEF.md e
 | Refinery utilization | `petroleum/pnp/wiup` | CONFIRMED on live API, Oct 5, 2026 (`WPULEUS3` listed) |
 | Weekly supply estimates, including production | `petroleum/sum/sndw` | CONFIRMED on live API, Oct 5, 2026 (`WCRFPUS2` listed) |
 | Weekly exports | `petroleum/move/wkly` | CONFIRMED on live API, Oct 5, 2026 (`WCREXUS2` listed) |
+| WTI futures contracts 1 to 4 | `petroleum/pri/fut` | CONFIRMED listed (`RCLC1`–`RCLC4`), but **data ends April 5, 2024**. History only |
 
 Confirmed with `check_routes.py`, which lists each route's series facet and checks the ID is there, followed by a two-row test fetch of each series. Findings from that check:
 

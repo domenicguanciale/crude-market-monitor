@@ -95,7 +95,7 @@ erDiagram
         date published_date
     }
     PRICE_SERIES {
-        string benchmark PK "WTI or Brent"
+        string benchmark PK "WTI, Brent, WTI future 1 or 4"
         date price_date PK
         float price "dollars per barrel"
     }
@@ -109,15 +109,17 @@ erDiagram
         int tightness_score "calculated"
         string tightness_label "calculated"
         float spread "calculated"
+        float futures_gap_pct "calculated, history only"
+        string curve_state "calculated, history only"
     }
 ```
 
-- **Calculated properties:** the tightness score and the Brent minus WTI spread on each weekly reading.
+- **Calculated properties:** the tightness score and the Brent minus WTI spread on each weekly reading. The futures curve gap and curve state are calculated too, but only through April 5, 2024 (history only).
 - **Action (version 2):** "Flag hedge review" fires when the score is tight and a new disruption is logged, and alerts the buyer.
 
 ## Data
 
-Seven EIA weekly and daily series. Every route and series ID was confirmed against the live API with `check_routes.py` before use.
+Seven live EIA series and two history-only futures series. Every route and series ID was confirmed against the live API with `check_routes.py` before use. The script also prints each series' latest date, because a series can stay listed after EIA stops updating it.
 
 | What | EIA series | Units | Route |
 |---|---|---|---|
@@ -128,6 +130,8 @@ Seven EIA weekly and daily series. Every route and series ID was confirmed again
 | Refinery utilization | `WPULEUS3` | % of operable capacity | `petroleum/pnp/wiup` |
 | Crude production | `WCRFPUS2` | thousand barrels/day | `petroleum/sum/sndw` |
 | Crude exports | `WCREXUS2` | thousand barrels/day | `petroleum/move/wkly` |
+| WTI futures, contract 1 (history only) | `RCLC1` | $/barrel, daily, ends Apr 5, 2024 | `petroleum/pri/fut` |
+| WTI futures, contract 4 (history only) | `RCLC4` | $/barrel, daily, ends Apr 5, 2024 | `petroleum/pri/fut` |
 
 EIA releases the weekly figures on Wednesdays, for the week that ended the previous Friday. Scores start in November 1995, the first week with five full prior years for all three inputs.
 
@@ -152,6 +156,33 @@ EIA releases the weekly figures on Wednesdays, for the week that ended the previ
 - 2022 is tight under either choice.
 
 **Single abnormal weeks stay in.** Winter Storm Uri cut utilization to 56% in February 2021. That week sits at the low end of the utilization range through February 2026 and shows as a dip in the band each February. It is kept, because removing single weeks by judgment would invite cherry-picking.
+
+## Futures curve: history only, ends April 2024
+
+**There is no free live source for the WTI futures curve.**
+- EIA's futures route still lists the contracts but stopped updating on April 5, 2024.
+- FRED carries only spot prices.
+- CME, the exchange, licenses its settlement data, and its pages could not be reached to confirm the terms.
+
+So the curve is a **research comparison for 2010 to April 2024**, not a gauge. It is not shown on the live page.
+
+**What it measures.** The gap between the nearest WTI futures contract and the fourth, as a share of the fourth, averaged over each week (`futures.py`).
+- **Backwardation** means the near contract is priced above the later one: buyers pay up for oil now. It is a sign of tightness.
+- **Contango** means the near contract is cheaper: oil now is plentiful. It is a sign of looseness.
+- A gap within ±1% counts as flat. That band was fixed before looking at results, and a sign-only version is reported too.
+
+**Result: the curve and the score mostly agree.** The curve gives a market-price view and the score a physical-inventory view, and they point the same way far more often than chance. `curve_history.py` reproduces this; it covers 745 weeks from 2010 to April 2024.
+
+| | Score's weeks matching the curve | Base rate across all weeks |
+|---|---|---|
+| Tight weeks in backwardation | 76% (89% sign only) | 30% (40% sign only) |
+| Loose weeks in contango | 90% (98% sign only) | 46% (60% sign only) |
+| Opposite readings (tight in contango, or loose in backwardation) | 4% and 1% | |
+
+- **The score is stricter than the curve.** Only 40% of backwardation weeks scored tight, and 44% of contango weeks scored loose. The curve often signals tightness when US stocks are merely normal.
+- **Leaving out 2020 changes little.** Loose weeks in contango rise from 90% to 93%.
+- **This fits the theory of storage.** When inventories are low, oil for immediate delivery commands a premium over later delivery. Price is still not an input to the score, so the agreement is a check on the score, not circular.
+- **Caution.** Tight and loose weeks come in clusters, such as 2014, 2016, 2020 and 2022, so these 745 weeks are far fewer independent observations.
 
 ## Backtest: does the score say anything about the next four weeks?
 
@@ -190,6 +221,7 @@ EIA releases the weekly figures on Wednesdays, for the week that ended the previ
 From METHODS.md section 8. Items marked *(later version)* describe parts of the project not built yet.
 
 - The score uses US data only and measures US conditions, not global ones.
+- No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
 - Forward windows overlap, which overstates how much evidence there is. The every-fourth-week check is reported alongside.
 - Tight and loose weeks come in clusters, so a handful of episodes drive the backtest result.
@@ -215,6 +247,7 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python fetch.py          # download the seven series into DuckDB
 .venv/bin/python calculate.py      # five-year comparison, score, and spread
 .venv/bin/python backtest.py       # backtest (METHODS.md section 3)
+.venv/bin/python curve_history.py  # futures curve vs score, history only
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -228,14 +261,16 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `eia.py` | Reads the key from `.env`, calls the EIA API, pages through long series |
 | `check_routes.py` | Confirms each series ID exists on its route before anything is fetched |
 | `db.py` | The DuckDB schema: one table per ontology object type |
-| `fetch.py` | Downloads the seven series and stores them |
+| `fetch.py` | Downloads the seven live series and the two history-only futures series |
 | `seasonal.py` | Five-year comparison (METHODS.md section 1) |
 | `score.py` | Tightness score and weekly spread (METHODS.md section 2) |
 | `calculate.py` | Runs the comparison, score, and spread and saves them |
 | `compare_2020.py` | Shows what leaving 2020 out of the range changes |
 | `backtest.py` | Four-week price changes after tight, loose, and all weeks |
+| `futures.py` | Futures curve gap and backwardation/contango state (history only) |
+| `curve_history.py` | How often the curve agreed with the score, 2010 to April 2024 |
 | `app.py` | The Streamlit page |
-| `tests/` | Tests for the schema, the API paging, the comparison, and the score |
+| `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 
 ## Roadmap
 

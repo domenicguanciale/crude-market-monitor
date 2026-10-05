@@ -1,8 +1,10 @@
-"""Confirm each series ID exists under its route on the live EIA API.
+"""Confirm each series ID exists under its route on the live EIA API, and how current it is.
 
 Run: .venv/bin/python check_routes.py
 Nothing is fetched for real until every row here says OK.
 """
+
+import datetime as dt
 
 import eia
 
@@ -15,7 +17,15 @@ SERIES_ROUTES = {
     "WPULEUS3": "petroleum/pnp/wiup",   # Refinery utilization
     "WCRFPUS2": "petroleum/sum/sndw",   # Crude production
     "WCREXUS2": "petroleum/move/wkly",  # Crude exports
+    "RCLC1": "petroleum/pri/fut",       # WTI futures, contract 1 (history only)
+    "RCLC4": "petroleum/pri/fut",       # WTI futures, contract 4 (history only)
 }
+
+# Series EIA stopped updating. Used for history only, never as a live gauge.
+HISTORY_ONLY = {"RCLC1", "RCLC4"}
+
+# A live series whose latest value is older than this is flagged STALE
+STALE_AFTER_DAYS = 30
 
 
 def series_on_route(route):
@@ -24,28 +34,42 @@ def series_on_route(route):
     return {f["id"]: f.get("name", "") for f in facets}
 
 
-def frequencies_on_route(route):
-    """Return the frequencies (weekly, daily, ...) a route offers."""
-    meta = eia.get(route)
-    return [f["id"] for f in meta.get("frequency", [])]
+def latest_date(route, series_id):
+    """The most recent date EIA has a value for. Being listed does not mean being current."""
+    frequency = "daily" if route.startswith("petroleum/pri") else "weekly"
+    resp = eia.get(f"{route}/data/", {
+        "frequency": frequency, "data[]": "value", "facets[series][]": series_id,
+        "sort[0][column]": "period", "sort[0][direction]": "desc", "length": 1,
+    })
+    return dt.date.fromisoformat(resp["data"][0]["period"]) if resp["data"] else None
+
+
+def coverage_status(series_id, last, today):
+    """OK if current, HISTORY if a known history-only series, STALE if a live series stopped updating."""
+    if series_id in HISTORY_ONLY:
+        return "HISTORY"
+    if last is None or (today - last).days > STALE_AFTER_DAYS:
+        return "STALE"
+    return "OK"
 
 
 def main():
-    cache = {}
+    listed_by_route = {}
+    today = dt.date.today()
     all_ok = True
     for series_id, route in SERIES_ROUTES.items():
-        if route not in cache:
-            cache[route] = (series_on_route(route), frequencies_on_route(route))
-        listed, freqs = cache[route]
-        if series_id in listed:
-            print(f"OK       {series_id:<9} {route:<20} {listed[series_id]}")
-        else:
+        if route not in listed_by_route:
+            listed_by_route[route] = series_on_route(route)
+        listed = listed_by_route[route]
+        if series_id not in listed:
             all_ok = False
             print(f"MISSING  {series_id:<9} {route:<20} not listed")
-    print()
-    for route, (listed, freqs) in cache.items():
-        print(f"{route:<20} frequencies: {', '.join(freqs)}  ({len(listed)} series)")
-    print("\nAll routes confirmed." if all_ok else "\nSome series not found. Do not fetch yet.")
+            continue
+        last = latest_date(route, series_id)
+        status = coverage_status(series_id, last, today)
+        all_ok = all_ok and status != "STALE"
+        print(f"{status:<8} {series_id:<9} {route:<20} latest {last}  {listed[series_id]}")
+    print("\nAll routes confirmed and current." if all_ok else "\nSome series missing or stale. Do not use them as live data.")
 
 
 if __name__ == "__main__":

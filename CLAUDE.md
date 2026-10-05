@@ -69,13 +69,24 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Label the score "US tightness". Always show the **Brent minus WTI spread** next to it as a second, global gauge.
 - Weekly spread = average of daily Brent minus WTI over the Saturday-to-Friday week, counting only days with both prices. The user chose this over the Friday close.
 
+## Futures curve (expansion item 2, history only)
+
+- **No free live source found.** EIA `petroleum/pri/fut` (`RCLC1`, `RCLC4`) ends April 5, 2024. FRED has spot prices only. CME licenses its data, and its site could not be reached to confirm terms. Do not scrape exchange sites or use unofficial feeds.
+- `futures.py`: weekly average of (contract 1 − contract 4) / contract 4. Backwardation above +1%, contango below −1%, otherwise flat. The band was fixed in advance, and a sign-only version is also reported.
+- Stored in `price_series` as `WTI future 1` and `WTI future 4`, and on `weekly_reading` as `futures_gap`, `futures_gap_pct` and `curve_state`. Never shown as a live gauge on the page.
+- Any code using spot prices must select the `Brent` and `WTI` columns before `dropna()`, or the futures ending in 2024 will remove later days.
+- `check_routes.py` checks the latest date, not just the listing. Series in `HISTORY_ONLY` are expected to be old.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Expansion items 1 to 9 (backtest, futures curve, prediction markets, unusual activity, CFTC positioning, OVX, GPR index, AI news reader, chokepoints). Item 9's text was cut off and needs the full wording from the user.
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only).
+- Next: 3 prediction markets (prioritize the 2026 Iran war and oil price levels), 4 unusual activity, 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9 chokepoints (text cut off), 10 (not yet received), 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Item 11 rules: every row needs a news agency or official source, and Wikipedia is a pointer only. Where sources disagree on a date, record both and flag it. Every row is "not hand-checked" until the user checks it, and nothing downstream may use an unchecked row. The war is one episode with sub-events, and every result is reported with and without it.
+- Item 12 rules: static page in docs/ for GitHub Pages, reading a JSON file from export_showcase.py, with no key in the browser. Use hand-checked events only. Say "moved together, not caused". Not trading advice. Credit EIA and FRED. Works on a phone, in light and dark mode, with one accent colour.
 
 ## Expansion rules (added Oct 5, 2026)
 

@@ -116,7 +116,8 @@ with right:
               f"${latest.spread:,.2f} per barrel",
               delta=change_text(latest.spread - previous.spread, "{:+,.2f}"),
               delta_color="off", delta_arrow="off")
-    last_day = prices.pivot(index="price_date", columns="benchmark", values="price").dropna().iloc[-1]
+    spot = prices.pivot(index="price_date", columns="benchmark", values="price")[["Brent", "WTI"]]
+    last_day = spot.dropna().iloc[-1]
     st.caption(f"Global gauge. Latest day {last_day.name:%B %-d}: Brent \\${last_day.Brent:,.2f}, "
                f"WTI \\${last_day.WTI:,.2f}. A wide gap means the world is short while the US is better supplied.")
 

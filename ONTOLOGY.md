@@ -8,7 +8,7 @@ The ontology is the list of things this project tracks, what we record about eac
 |---|---|---|---|
 | Facility | `facility` | Name, type, country, barrels per day | Disruption events |
 | Disruption event | `disruption_event` | Date, day zero, cause, barrels per day offline, physical loss (yes or no) | Facility, sources, weekly reading |
-| Price series | `price_series` | Benchmark (WTI, Brent), date, price | Disruption events (through price reactions) |
+| Price series | `price_series` | Benchmark (WTI, Brent, WTI future 1, WTI future 4), date, price | Disruption events (through price reactions) |
 | Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, date | Disruption events |
 
@@ -25,6 +25,11 @@ These are computed from other data, not fetched.
 
 - **Tightness score** on each weekly reading. Ranges from −3 to +3 and is labelled tight, normal or loose. See METHODS.md section 2.
 - **Brent minus WTI spread** on each weekly reading. Calculated from the price series.
+- **Futures curve gap and curve state** on each weekly reading, **history only, through April 5, 2024**. The gap is contract 1 minus contract 4 as a share of contract 4. The state is backwardation (tight), contango (loose) or flat. No free live source exists, so these are empty after April 2024.
+
+## Price series benchmarks
+
+`price_series` holds four daily series: `WTI` and `Brent` (spot, live), and `WTI future 1` and `WTI future 4` (futures, history only, ending April 5, 2024). They share one table because each is the same kind of object: a benchmark, a date and a price. Code that needs only spot prices must select the `WTI` and `Brent` columns before dropping incomplete days.
 
 ## Action
 
@@ -35,5 +40,5 @@ These are computed from other data, not fetched.
 | Table | Version 1 |
 |---|---|
 | `weekly_reading` | Filled from EIA, with score and spread calculated |
-| `price_series` | Filled with daily WTI and Brent from EIA |
+| `price_series` | Filled with daily WTI and Brent spot prices, plus WTI futures contracts 1 and 4 through April 2024 |
 | `facility`, `disruption_event`, `source` | Created empty, filled in version 2 |

@@ -4,6 +4,7 @@ Run after fetch.py: .venv/bin/python calculate.py
 """
 
 import db
+import futures
 import score
 import seasonal
 
@@ -20,13 +21,17 @@ def main():
     calc = score.add_scores(calc)
     spread = score.weekly_spread(prices)
     calc = calc.drop(columns="spread").merge(spread, on="week_ending", how="left")
+    # Item 2: futures curve shape, history only (EIA futures end April 5, 2024)
+    curve = futures.weekly_curve(prices)
+    calc = (calc.drop(columns=["futures_gap", "futures_gap_pct", "curve_state"])
+                .merge(curve, on="week_ending", how="left"))
 
     # Write every calculated column back to its row, matched by week_ending
     new_columns = ["week_year", "week_number"] + [
         f"{prefix}_{stat}"
         for prefix in seasonal.INPUTS.values()
         for stat in ["low", "high", "avg", "position", "pct_vs_avg"]
-    ] + ["tightness_score", "tightness_label", "spread"]
+    ] + ["tightness_score", "tightness_label", "spread", "futures_gap", "futures_gap_pct", "curve_state"]
     assignments = ", ".join(f"{c} = calc.{c}" for c in new_columns)
     con.execute(f"UPDATE weekly_reading SET {assignments} FROM calc "
                 f"WHERE weekly_reading.week_ending = calc.week_ending")

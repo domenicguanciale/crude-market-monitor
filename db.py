@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS source (
 
 -- Price series: daily spot prices, one row per benchmark per day
 CREATE TABLE IF NOT EXISTS price_series (
-    benchmark       VARCHAR NOT NULL,      -- 'WTI' or 'Brent'
+    benchmark       VARCHAR NOT NULL,      -- 'WTI', 'Brent', 'WTI future 1', 'WTI future 4'
     price_date      DATE    NOT NULL,
     price           DOUBLE  NOT NULL,      -- dollars per barrel
     PRIMARY KEY (benchmark, price_date)
@@ -76,7 +76,11 @@ CREATE TABLE IF NOT EXISTS weekly_reading (
     -- Calculated properties, filled in step 6
     tightness_score    INTEGER,  -- -3 to +3
     tightness_label    VARCHAR,  -- tight, normal, loose
-    spread             DOUBLE    -- Brent minus WTI, dollars per barrel
+    spread             DOUBLE,   -- Brent minus WTI, dollars per barrel
+    -- Futures curve, HISTORY ONLY: EIA futures data ends April 5, 2024
+    futures_gap        DOUBLE,   -- contract 1 minus contract 4, dollars per barrel (weekly average)
+    futures_gap_pct    DOUBLE,   -- the same gap as a share of contract 4
+    curve_state        VARCHAR   -- backwardation (tight), contango (loose), flat
 );
 """
 

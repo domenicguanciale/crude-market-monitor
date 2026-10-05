@@ -54,6 +54,15 @@ class TestSpread(unittest.TestCase):
         self.assertAlmostEqual(result[dt.date(2026, 9, 25)], 15.0)
         self.assertAlmostEqual(result[dt.date(2026, 10, 2)], 17.80)
 
+    def test_other_series_ending_early_do_not_remove_days(self):
+        rows = [
+            ("WTI", dt.date(2026, 9, 21), 90.0), ("Brent", dt.date(2026, 9, 21), 110.0),
+            ("WTI future 1", dt.date(2024, 4, 5), 86.9),  # a series that stopped in 2024
+        ]
+        prices = pd.DataFrame(rows, columns=["benchmark", "price_date", "price"])
+        result = score.weekly_spread(prices).set_index("week_ending")["spread"]
+        self.assertAlmostEqual(result[dt.date(2026, 9, 25)], 20.0)
+
 
 if __name__ == "__main__":
     unittest.main()

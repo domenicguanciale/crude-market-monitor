@@ -71,7 +71,9 @@ def weekly_spread(prices):
 
     prices has columns benchmark, price_date, price. Only days with both prices count.
     """
-    wide = prices.pivot(index="price_date", columns="benchmark", values="price").dropna()
+    # Keep only the two spot benchmarks before dropping incomplete days, so other series in
+    # price_series (e.g. futures that end in 2024) can never remove days from the spread.
+    wide = prices.pivot(index="price_date", columns="benchmark", values="price")[["Brent", "WTI"]].dropna()
     daily = pd.DataFrame({
         "week_ending": [week_ending_of(d) for d in wide.index],
         "spread": wide["Brent"] - wide["WTI"],

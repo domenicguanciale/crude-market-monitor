@@ -1,4 +1,4 @@
-"""Download the seven EIA series and store them in DuckDB.
+"""Download the EIA series and store them in DuckDB (seven live series plus two history-only futures).
 
 Run: .venv/bin/python fetch.py
 Safe to re-run: each run replaces the stored data with EIA's latest figures.
@@ -26,6 +26,8 @@ WEEKLY = {
 PRICES = {
     "RWTC": "WTI",
     "RBRTE": "Brent",
+    "RCLC1": "WTI future 1",  # nearest WTI futures contract; EIA stopped updating Apr 5, 2024
+    "RCLC4": "WTI future 4",  # fourth contract; history only, same end date
 }
 
 
