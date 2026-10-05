@@ -47,11 +47,17 @@ The last two are additions to the original four. Section 8 of PROJECT_BRIEF.md e
 
 | Data | Route | Status |
 |---|---|---|
-| Weekly stocks | `petroleum/stoc/wstk` | Confirmed by a third-party guide, not by EIA's own page |
-| Spot prices | `petroleum/pri/spt` | UNVERIFIED |
-| Refinery utilization | `petroleum/pnp/wiup` | UNVERIFIED |
-| Weekly supply estimates, including production | `petroleum/sum/sndw` | UNVERIFIED |
-| Weekly exports | `petroleum/move/wkly` | UNVERIFIED |
+| Weekly stocks | `petroleum/stoc/wstk` | CONFIRMED on live API, Oct 5, 2026 (`WCESTUS1`, `WDISTUS1` listed) |
+| Spot prices | `petroleum/pri/spt` | CONFIRMED on live API, Oct 5, 2026 (`RWTC`, `RBRTE` listed) |
+| Refinery utilization | `petroleum/pnp/wiup` | CONFIRMED on live API, Oct 5, 2026 (`WPULEUS3` listed) |
+| Weekly supply estimates, including production | `petroleum/sum/sndw` | CONFIRMED on live API, Oct 5, 2026 (`WCRFPUS2` listed) |
+| Weekly exports | `petroleum/move/wkly` | CONFIRMED on live API, Oct 5, 2026 (`WCREXUS2` listed) |
+
+Confirmed with `check_routes.py`, which lists each route's series facet and checks the ID is there, followed by a two-row test fetch of each series. Findings from that check:
+
+- Daily WTI has about 10,260 rows and daily Brent about 9,990. That is more than the 5,000-row limit, so daily prices must be paged with `offset`.
+- `wiup`, `sndw` and `wkly` also offer a `four-week-average` frequency. Always request `frequency=weekly`.
+- Units returned: `$/BBL`, `MBBL` (thousand barrels), `MBBL/D` (thousand barrels per day), `%`.
 
 EIA's route browser would not load for checking. Claude Code should discover the routes from the API itself:
 
@@ -105,7 +111,7 @@ EIA's history pages also offer a spreadsheet download for each series, which wor
 
 ## 9. What was not verified
 
-- Four of the five routes in section 3.
+- ~~Four of the five routes in section 3.~~ All five are now confirmed on the live API (see section 3).
 - The exact rate limit, which EIA does not publish.
 - How quickly the key email arrives.
 - Any methodology changes to weekly production since 2023.
