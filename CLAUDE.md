@@ -67,3 +67,12 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Score = sum, from −3 to +3. Label: **tight** if ≥ +2, **loose** if ≤ −2, otherwise **normal**.
 - Weights are equal. Do not tune them.
 - Label the score "US tightness". Always show the **Brent minus WTI spread** next to it as a second, global gauge.
+- Weekly spread = average of daily Brent minus WTI over the Saturday-to-Friday week, counting only days with both prices. The user chose this over the Friday close.
+
+## Pipeline
+
+`check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
+
+## Open items
+
+- METHODS.md alternative: show the score with 2020 dropped from the five-year range. 2022 and 2025 score tight in most weeks, partly because 2020 widens the range. Not yet built.
