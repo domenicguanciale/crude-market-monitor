@@ -9,6 +9,11 @@ import pandas as pd
 
 YEARS_BACK = 5
 
+# Whole years marked abnormal in advance. They are never used as comparison values;
+# the range reaches one year further back instead. Rule: whole years only, decided
+# before looking at results, never single weeks. 2026 has no effect until 2027.
+ABNORMAL_YEARS = frozenset({2020, 2026})
+
 # Score input column in weekly_reading -> prefix for its comparison columns
 INPUTS = {
     "crude_stocks": "crude",

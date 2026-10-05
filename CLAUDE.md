@@ -55,7 +55,7 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 4. `position = (value - low) / (high - low)` gives 0 at the low and 1 at the high. It can fall outside 0 to 1.
    `pct_vs_avg = (value - average) / average`
 5. Week 53 is compared with week 52 of the prior years.
-6. 2020 and 2026 are kept in the range by default. The README says so. An optional alternative drops 2020.
+6. Abnormal years (`seasonal.ABNORMAL_YEARS` = 2020, 2026) are never used as comparison values. The range reaches one year further back to keep five values. Whole years only, marked in advance, never single weeks. The user decided this default (dropping 2020) before the backtest was run. Do not change the list based on results. `compare_2020.py` shows the version that keeps 2020.
 7. Do not use a z-score, because five values are too few for a reliable standard deviation.
 
 ## Tightness score (METHODS.md section 2)
@@ -75,4 +75,13 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 
 ## Open items
 
-- METHODS.md alternative: show the score with 2020 dropped from the five-year range. 2022 and 2025 score tight in most weeks, partly because 2020 widens the range. Not yet built.
+- Expansion items 1 to 9 (backtest, futures curve, prediction markets, unusual activity, CFTC positioning, OVX, GPR index, AI news reader, chokepoints). Item 9's text was cut off and needs the full wording from the user.
+
+## Expansion rules (added Oct 5, 2026)
+
+- Teaching mode: before each item, ask the user one question about the existing code it touches. Wait, correct, then build. One item at a time: show the result, run the tests, commit, wait for approval.
+- Confirm every new data source on the live service (route or ID, access rules, whether a key is needed). If it is unavailable or paid, say so and skip it.
+- Each new object type gets its own table, and ONTOLOGY.md, CLAUDE.md and the README are updated as items land. Every calculation gets tests.
+- This is a market monitoring and research tool, not betting or trading advice. The README and the app must both say so. Public data only.
+- Prediction market activity is reported in aggregate only. Never name, link to, or accuse an individual account or wallet.
+- Neutral wording about the conflict: dates, volumes and prices only.

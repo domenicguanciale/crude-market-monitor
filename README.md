@@ -4,6 +4,8 @@ A weekly read on how tight the US oil market is, set beside a global price gauge
 
 Data source: U.S. Energy Information Administration (EIA).
 
+> **This is a market monitoring and research tool. It does not give betting or trading recommendations.** It describes market conditions and how prices behaved in the past. It is a student project and is not investment advice.
+
 ## The question
 
 **When is the oil market tight, and how do prices react when supply is disrupted while it is tight?**
@@ -34,6 +36,7 @@ position   = (value - low) / (high - low)      0 at the five-year low, 1 at the 
 pct_vs_avg = (value - average) / average
 ```
 
+- **Abnormal years are skipped.** 2020 is never used as a comparison year. The range reaches one year further back instead, so it is always built from five values. See "How abnormal years are treated" below.
 - **Week 53** is compared with week 52 of the prior years.
 - **Missing years.** A week gets no result unless all five prior years have a value.
 - **Why not a z-score.** A standard deviation from only five values is unreliable. Position in the range is simpler and more robust.
@@ -130,11 +133,25 @@ EIA releases the weekly figures on Wednesdays, for the week that ended the previ
 
 ## How abnormal years are treated
 
-Abnormal years are **kept in the five-year range**, which is the default in METHODS.md. Their effect is stated here, not removed.
+**Rule: whole years marked abnormal in advance are left out of the five-year range, and the range reaches one year further back so it still holds five values. Single weeks are never removed.** The marked years are 2020 (pandemic) and 2026 (Strait of Hormuz closure). Marking 2026 has no effect until 2027, when it would first enter a five-year window. The list lives in `seasonal.ABNORMAL_YEARS` and was fixed before the backtest was run.
 
-- **2020 (pandemic).** Stocks swelled and refineries idled, so 2020 widens the range for every week from 2021 to 2025. That widening makes later weeks look tighter: 2022 scored tight in 50 of 52 weeks and 2025 in 46. Part of that is real, with low distillate stocks and busy refineries. Part is the method. A version that drops 2020 is the planned check.
-- **February 2021 (Winter Storm Uri).** Utilization fell to 56% in one week, and that week sits in the low end of the utilization range through February 2026. It is visible as a sharp dip in the band each February.
-- **2026 (Strait of Hormuz closure).** It is in the current data. From 2027 on, it will sit inside the five-year window the same way 2020 does.
+**Why 2020 is left out.** The range is meant to describe normal conditions. In 2020, stocks swelled and refineries ran far below normal. Keeping 2020 lowered the bar for "tight" in every year from 2021 to 2025, mostly through refinery utilization.
+
+**What the choice changed.** These are tight weeks per year; `compare_2020.py` reproduces the full table. Only 2021 to 2025 can differ.
+
+| Year | Tight weeks, 2020 kept (EIA-style range) | Tight weeks, 2020 left out (default) |
+|---|---|---|
+| 2021 | 24 | 4 |
+| 2022 | 50 | 44 |
+| 2023 | 36 | 12 |
+| 2024 | 39 | 6 |
+| 2025 | 46 | 31 |
+
+- 107 of 1,613 scored weeks change label, and 100 of those move from tight to normal.
+- Utilization drives most of the change: its average points for 2021 to 2025 fall from +0.57 to −0.02.
+- 2022 is tight under either choice.
+
+**Single abnormal weeks stay in.** Winter Storm Uri cut utilization to 56% in February 2021. That week sits at the low end of the utilization range through February 2026 and shows as a dip in the band each February. It is kept, because removing single weeks by judgment would invite cherry-picking.
 
 ## Limits
 
@@ -147,7 +164,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - The 2026 Strait of Hormuz episode is far larger than any other event and dominates averages. Results are shown with and without it. *(Event study: version 2)*
 - The event table was drafted with AI assistance and hand-checked. The accuracy rate is reported. *(Version 2. Not yet checked.)*
 - The tool describes how prices reacted in the past. It does not forecast when disruptions happen or what prices will do.
-- This is a student project and is not investment advice.
+- This is a market monitoring and research tool, not betting or trading advice. It is a student project and is not investment advice.
 
 ## Run it yourself
 

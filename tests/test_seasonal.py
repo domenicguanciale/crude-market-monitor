@@ -84,3 +84,12 @@ class TestWeekNumbers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAbnormalYears(unittest.TestCase):
+    def test_policy_is_whole_years_decided_in_advance(self):
+        self.assertEqual(seasonal.ABNORMAL_YEARS, {2020, 2026})
+
+    def test_2026_changes_nothing_until_it_enters_the_window(self):
+        self.assertEqual(seasonal.prior_years(2026, seasonal.ABNORMAL_YEARS), [2025, 2024, 2023, 2022, 2021])
+        self.assertEqual(seasonal.prior_years(2027, seasonal.ABNORMAL_YEARS), [2025, 2024, 2023, 2022, 2021])

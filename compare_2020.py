@@ -1,5 +1,7 @@
 """Compare the score with and without 2020 in the five-year range (METHODS.md section 1 alternative).
 
+The project default drops 2020 (seasonal.ABNORMAL_YEARS). This script shows what that choice changed.
+
 Run after fetch.py: .venv/bin/python compare_2020.py
 Reads the database, changes nothing in it.
 """

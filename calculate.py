@@ -16,7 +16,7 @@ def main():
     prices = con.execute("SELECT * FROM price_series").df()
 
     # Step 5: five-year comparison. Step 6: score, label, and weekly Brent minus WTI spread.
-    calc = seasonal.compare_all(weekly)
+    calc = seasonal.compare_all(weekly, exclude_years=seasonal.ABNORMAL_YEARS)
     calc = score.add_scores(calc)
     spread = score.weekly_spread(prices)
     calc = calc.drop(columns="spread").merge(spread, on="week_ending", how="left")

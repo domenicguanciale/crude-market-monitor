@@ -110,7 +110,7 @@ with left:
               delta=change_text(score_value - int(previous.tightness_score), "{:+d}"),
               delta_color="off", delta_arrow="off")
     st.caption("Crude stocks, distillate stocks and refinery utilization, each compared with the same "
-               "week in the prior five years. US data only.")
+               "week in the prior five years, with 2020 left out of the range. US data only.")
 with right:
     st.metric("Brent minus WTI spread (weekly average)",
               f"${latest.spread:,.2f} per barrel",
@@ -174,4 +174,5 @@ with st.expander("Table view of the weekly data"):
 
 st.caption("Source: U.S. Energy Information Administration. Stocks in thousand barrels in the table, "
            "production and exports in thousand barrels per day. The score measures US conditions only. "
-           "This is a student project and is not investment advice.")
+           "This is a market monitoring and research tool, not betting or trading advice. "
+           "It is a student project and is not investment advice.")
