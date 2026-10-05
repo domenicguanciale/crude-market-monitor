@@ -54,7 +54,26 @@ CREATE TABLE IF NOT EXISTS weekly_reading (
     utilization        DOUBLE,   -- percent of operable capacity (WPULEUS3)
     production         DOUBLE,   -- thousand barrels per day (WCRFPUS2)
     exports            DOUBLE,   -- thousand barrels per day (WCREXUS2)
-    -- Calculated properties, filled in steps 5 and 6
+    -- ISO week of the week-ending date (METHODS.md section 1)
+    week_year          INTEGER,
+    week_number        INTEGER,  -- 1 to 53
+    -- Five-year comparison for each score input: same week, prior five years
+    crude_low          DOUBLE,
+    crude_high         DOUBLE,
+    crude_avg          DOUBLE,
+    crude_position     DOUBLE,   -- 0 at the five-year low, 1 at the high
+    crude_pct_vs_avg   DOUBLE,   -- -0.056 means 5.6% below the five-year average
+    distillate_low         DOUBLE,
+    distillate_high        DOUBLE,
+    distillate_avg         DOUBLE,
+    distillate_position    DOUBLE,
+    distillate_pct_vs_avg  DOUBLE,
+    utilization_low         DOUBLE,
+    utilization_high        DOUBLE,
+    utilization_avg         DOUBLE,
+    utilization_position    DOUBLE,
+    utilization_pct_vs_avg  DOUBLE,
+    -- Calculated properties, filled in step 6
     tightness_score    INTEGER,  -- -3 to +3
     tightness_label    VARCHAR,  -- tight, normal, loose
     spread             DOUBLE    -- Brent minus WTI, dollars per barrel
