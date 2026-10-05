@@ -84,7 +84,11 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 ## Open items
 
 - Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only).
-- Next: 3 prediction markets (prioritize the 2026 Iran war and oil price levels), 4 unusual activity, 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9 chokepoints (text cut off), 10 (not yet received), 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Next: 3 prediction markets (prioritize the 2026 Iran war and oil price levels), 4 unusual activity, 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
+- Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
+- After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.
+- **Do not start the event study itself.** The user must hand-check the events table first.
 - Item 11 rules: every row needs a news agency or official source, and Wikipedia is a pointer only. Where sources disagree on a date, record both and flag it. Every row is "not hand-checked" until the user checks it, and nothing downstream may use an unchecked row. The war is one episode with sub-events, and every result is reported with and without it.
 - Item 12 rules: static page in docs/ for GitHub Pages, reading a JSON file from export_showcase.py, with no key in the browser. Use hand-checked events only. Say "moved together, not caused". Not trading advice. Credit EIA and FRED. Works on a phone, in light and dark mode, with one accent colour.
 
