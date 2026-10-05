@@ -26,11 +26,23 @@ def add_week_numbers(df):
     return df
 
 
-def five_year_compare(df, column):
+def prior_years(year, exclude_years=()):
+    """The five years before `year`. An excluded year is skipped and one more year back is used,
+    so the range is always built from five values."""
+    years, y = [], year - 1
+    while len(years) < YEARS_BACK:
+        if y not in exclude_years:
+            years.append(y)
+        y -= 1
+    return years
+
+
+def five_year_compare(df, column, exclude_years=()):
     """Return low, high, avg, position and pct_vs_avg for one column.
 
     df needs week_year, week_number and the column. Rows come back in the same order.
-    A week gets no result unless all five prior years have a value for that week.
+    A week gets no result unless all five comparison years have a value for that week.
+    exclude_years: years never used as comparison values, e.g. {2020} (METHODS.md section 1 alternative).
     """
     # Look up any value by (year, week). Week 53 rows are left out on purpose:
     # the rule compares a week 53 to week 52 of prior years, so week 53 is never a comparison value.
@@ -43,7 +55,7 @@ def five_year_compare(df, column):
     rows = []
     for year, week, value in zip(df["week_year"], df["week_number"], df[column]):
         compare_week = min(week, 52)  # week 53 -> week 52
-        past = [lookup.get((year - k, compare_week)) for k in range(1, YEARS_BACK + 1)]
+        past = [lookup.get((y, compare_week)) for y in prior_years(year, exclude_years)]
         if pd.isna(value) or any(p is None for p in past):
             rows.append((None, None, None, None, None))
             continue
@@ -57,11 +69,11 @@ def five_year_compare(df, column):
                         index=df.index, dtype="float64")
 
 
-def compare_all(df):
+def compare_all(df, exclude_years=()):
     """Add week numbers and the five comparison columns for each score input."""
     df = add_week_numbers(df)
     for column, prefix in INPUTS.items():
-        result = five_year_compare(df, column)
+        result = five_year_compare(df, column, exclude_years)
         for stat in result.columns:
             df[f"{prefix}_{stat}"] = result[stat]
     return df

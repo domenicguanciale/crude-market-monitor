@@ -55,6 +55,23 @@ class TestFiveYearCompare(unittest.TestCase):
         self.assertAlmostEqual(seasonal.five_year_compare(df, "stocks").iloc[-1].position, -0.25)
 
 
+class TestDropYears(unittest.TestCase):
+    def test_prior_years_reach_back_past_an_excluded_year(self):
+        self.assertEqual(seasonal.prior_years(2023), [2022, 2021, 2020, 2019, 2018])
+        self.assertEqual(seasonal.prior_years(2023, {2020}), [2022, 2021, 2019, 2018, 2017])
+        self.assertEqual(seasonal.prior_years(2026, {2020}), [2025, 2024, 2023, 2022, 2021])  # unaffected
+
+    def test_excluded_year_is_replaced_not_left_blank(self):
+        df = weeks([(2017, 10, 100), (2018, 10, 200), (2019, 10, 300), (2020, 10, 9999),
+                    (2021, 10, 400), (2022, 10, 500), (2023, 10, 300)])
+        default = seasonal.five_year_compare(df, "stocks").iloc[-1]
+        dropped = seasonal.five_year_compare(df, "stocks", exclude_years={2020}).iloc[-1]
+        self.assertEqual((default.low, default.high), (200, 9999))   # 2018-2022, 2020 included
+        self.assertEqual((dropped.low, dropped.high), (100, 500))    # 2017-2022 without 2020
+        self.assertAlmostEqual(dropped.avg, 300)
+        self.assertAlmostEqual(dropped.position, 0.5)
+
+
 class TestWeekNumbers(unittest.TestCase):
     def test_iso_weeks_of_fridays(self):
         df = seasonal.add_week_numbers(pd.DataFrame({"week_ending": [
