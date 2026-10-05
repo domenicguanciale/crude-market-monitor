@@ -3,12 +3,15 @@
 Data source: U.S. Energy Information Administration.
 """
 
+import time
 from pathlib import Path
 
+import pandas as pd
 import requests
 
 BASE_URL = "https://api.eia.gov/v2/"
 ENV_FILE = Path(__file__).parent / ".env"
+PAGE_SIZE = 5000  # EIA's maximum rows per response
 
 
 def load_api_key():
@@ -38,3 +41,27 @@ def get(route, params=None):
         body = resp.text[:300].replace(key, "***")
         raise RuntimeError(f"EIA returned {resp.status_code} for route '{route}': {body}")
     return resp.json()["response"]
+
+
+def fetch_series(route, series_id, frequency):
+    """Download every row of one series, page by page, as a two-column table: period, value."""
+    rows, offset = [], 0
+    while True:
+        resp = get(f"{route}/data/", {
+            "frequency": frequency,
+            "data[]": "value",
+            "facets[series][]": series_id,
+            "sort[0][column]": "period",
+            "sort[0][direction]": "asc",
+            "offset": offset,
+            "length": PAGE_SIZE,
+        })
+        rows.extend(resp["data"])
+        offset += PAGE_SIZE
+        if offset >= int(resp["total"]):
+            break
+        time.sleep(0.3)  # stay well under EIA's informal limit of 5 requests a second
+    df = pd.DataFrame(rows, columns=["period", "value"])
+    df["period"] = pd.to_datetime(df["period"])
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")  # EIA sends numbers as text
+    return df.dropna(subset=["value"]).reset_index(drop=True)
