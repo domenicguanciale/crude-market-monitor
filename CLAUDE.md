@@ -12,7 +12,7 @@ Full specs: PROJECT_BRIEF.md (plan), DATA_SPEC.md (series IDs, API), METHODS.md 
 - Read the EIA API key from `.env` (`EIA_API_KEY=...`). Never print it, log it, or commit it. `.env` is in `.gitignore`.
 - Routes in DATA_SPEC.md marked UNVERIFIED must be confirmed against the live API before use. Never guess a route or series ID.
 - Follow METHODS.md for the five-year comparison and the score. If a method seems wrong, tell the user before changing it.
-- Commit to git after each working step with a clear message.
+- Commit to git after each working step with a clear message, then push to GitHub after every commit (user instruction, Oct 5, 2026). Before pushing, confirm `.env` and the database are not tracked.
 - README must include a Mermaid diagram of the ontology, the question, the method, and the limits from METHODS.md section 8.
 - Stay neutral about 2026 events: record dates, volumes, and prices only. Measure reactions; never claim to predict.
 - Credit "U.S. Energy Information Administration" as the data source. Do not use the EIA logo.
@@ -77,14 +77,22 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Any code using spot prices must select the `Brent` and `WTI` columns before `dropna()`, or the futures ending in 2024 will remove later days.
 - `check_routes.py` checks the latest date, not just the listing. Series in `HISTORY_ONLY` are expected to be old.
 
+## Prediction markets (expansion item 3)
+
+- Sources confirmed live on Oct 5, 2026, with no key. Polymarket: `gamma-api.polymarket.com` (`/public-search`, `/markets`) and `clob.polymarket.com/prices-history` (daily prices; documented limits of 300 to 1,000 requests per 10 s). Kalshi: `api.elections.kalshi.com/trade-api/v2` (`/series`, `/markets`, `/series/{s}/markets/{t}/candlesticks`; docs say market data is public).
+- Selection rule in `prediction_markets.py`, fixed before seeing results. Topic is gulf_conflict or oil_price by title regex, with exclusions. Total volume of at least 10,000. Closes on or after Jan 1, 2026. Open at least 7 days. Kalshi daily, hourly and 15-minute series are skipped.
+- Tables: `prediction_market` (one row per market) and `market_reading` (one row per market per day). **Add or update only, never delete**, so closed markets keep their history. Updates use COALESCE so a missing value never erases a stored one.
+- Daily volume: Kalshi candles give it for the full history. Polymarket gives only all-time totals, so each run stores `total_volume` and daily Polymarket volume exists only from the first run onward (Oct 5, 2026).
+- Privacy: only the fields in `fetch_markets.MARKET_COLUMNS` and `READING_COLUMNS` are stored. Never store or request trade-level or account data (Polymarket's data-api trades include wallets).
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only).
-- Next: 3 prediction markets (prioritize the 2026 Iran war and oil price levels), 4 unusual activity, 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets).
+- Next: 4 unusual activity (prioritize the 2026 Iran war and oil price levels), 5 CFTC positioning, 6 OVX, 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.

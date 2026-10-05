@@ -82,6 +82,37 @@ CREATE TABLE IF NOT EXISTS weekly_reading (
     futures_gap_pct    DOUBLE,   -- the same gap as a share of contract 4
     curve_state        VARCHAR   -- backwardation (tight), contango (loose), flat
 );
+
+-- Prediction market: one market on Polymarket or Kalshi (expansion item 3). Market-level only:
+-- no account, wallet or address fields are ever stored.
+CREATE TABLE IF NOT EXISTS prediction_market (
+    market_key      VARCHAR PRIMARY KEY,   -- 'polymarket:<id>' or 'kalshi:<ticker>'
+    platform        VARCHAR NOT NULL,
+    market_id       VARCHAR NOT NULL,
+    event_title     VARCHAR,
+    question        VARCHAR,
+    outcome         VARCHAR,               -- the outcome whose chance 'price' measures, usually 'Yes'
+    topic           VARCHAR,               -- 'gulf_conflict' or 'oil_price'
+    opened          DATE,
+    closes          DATE,
+    status          VARCHAR,               -- open or closed
+    result          VARCHAR,               -- settlement result where the platform gives it
+    total_volume    DOUBLE,                -- all-time volume at last fetch
+    volume_unit     VARCHAR,               -- 'USD' (Polymarket) or 'contracts' (Kalshi, $1 each)
+    last_fetched    TIMESTAMP
+);
+
+-- Market reading: one market on one day. Rows are added or updated, never deleted,
+-- so markets that close and drop off the platforms' lists keep their history here.
+CREATE TABLE IF NOT EXISTS market_reading (
+    market_key      VARCHAR NOT NULL REFERENCES prediction_market (market_key),
+    reading_date    DATE    NOT NULL,      -- UTC date
+    price           DOUBLE,                -- 0 to 1, the market's implied chance of the outcome
+    volume          DOUBLE,                -- traded that day (Kalshi history); empty if not published
+    total_volume    DOUBLE,                -- all-time volume seen on this date (snapshots)
+    fetched_at      TIMESTAMP,
+    PRIMARY KEY (market_key, reading_date)
+);
 """
 
 

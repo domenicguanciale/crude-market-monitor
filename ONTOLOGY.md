@@ -11,6 +11,8 @@ The ontology is the list of things this project tracks, what we record about eac
 | Price series | `price_series` | Benchmark (WTI, Brent, WTI future 1, WTI future 4), date, price | Disruption events (through price reactions) |
 | Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, date | Disruption events |
+| Prediction market | `prediction_market` | Platform (Polymarket, Kalshi), question, outcome, topic (gulf_conflict, oil_price), open and close dates, status, result, all-time volume | Market readings; disruption events by date (item 4) |
+| Market reading | `market_reading` | Market, date, price (implied chance, 0 to 1), volume that day, all-time volume at snapshot | Prediction market |
 
 ## Links
 
@@ -18,6 +20,9 @@ The ontology is the list of things this project tracks, what we record about eac
 - A **disruption event** can cite many **sources**.
 - A **disruption event** falls in one **weekly reading**: the week whose week-ending date it falls in.
 - A **disruption event** links to the **price series** through its price reaction around day zero (version 2).
+
+- A **prediction market** has many **market readings**, one per day.
+- Prediction markets link to **disruption events** by date only, through the unusual-activity check in item 4. They are never linked to any account or wallet.
 
 ## Calculated properties
 
@@ -42,3 +47,4 @@ These are computed from other data, not fetched.
 | `weekly_reading` | Filled from EIA, with score and spread calculated |
 | `price_series` | Filled with daily WTI and Brent spot prices, plus WTI futures contracts 1 and 4 through April 2024 |
 | `facility`, `disruption_event`, `source` | Created empty, filled in version 2 |
+| `prediction_market`, `market_reading` | Filled by `fetch_markets.py` (expansion item 3). Add or update only, never delete |

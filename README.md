@@ -60,7 +60,7 @@ The weekly spread is the average of daily Brent minus WTI over the trading days 
 
 ## Ontology
 
-Each object type is its own DuckDB table. Version 1 fills `weekly_reading` and `price_series`. The other three tables exist but stay empty until version 2. Full detail is in [ONTOLOGY.md](ONTOLOGY.md).
+Each object type is its own DuckDB table. `weekly_reading`, `price_series`, `prediction_market` and `market_reading` are filled. `facility`, `disruption_event` and `source` wait for the hand-checked event table. Full detail is in [ONTOLOGY.md](ONTOLOGY.md).
 
 ```mermaid
 erDiagram
@@ -98,6 +98,25 @@ erDiagram
         string benchmark PK "WTI, Brent, WTI future 1 or 4"
         date price_date PK
         float price "dollars per barrel"
+    }
+    PREDICTION_MARKET ||--o{ MARKET_READING : "has daily"
+
+    PREDICTION_MARKET {
+        string market_key PK "platform:id"
+        string platform
+        string question
+        string topic "gulf_conflict or oil_price"
+        date opened
+        date closes
+        string status
+        float total_volume
+    }
+    MARKET_READING {
+        string market_key PK
+        date reading_date PK
+        float price "implied chance, 0 to 1"
+        float volume "that day, Kalshi"
+        float total_volume "all-time, at snapshot"
     }
     WEEKLY_READING {
         date week_ending PK
@@ -184,6 +203,34 @@ So the curve is a **research comparison for 2010 to April 2024**, not a gauge. I
 - **This fits the theory of storage.** When inventories are low, oil for immediate delivery commands a premium over later delivery. Price is still not an input to the score, so the agreement is a check on the score, not circular.
 - **Caution.** Tight and loose weeks come in clusters, such as 2014, 2016, 2020 and 2022, so these 745 weeks are far fewer independent observations.
 
+## Prediction markets: what traders priced in (expansion item 3)
+
+`fetch_markets.py` collects public market data from **Polymarket** and **Kalshi** on two topics: the 2026 Gulf conflict, and crude oil price levels. Both sources were confirmed on the live service on October 5, 2026, and neither needs a key for market data. Prediction market prices are traders' implied chances, not facts or forecasts by this project.
+
+**Which markets are included.** The rule was fixed before any prices were looked at (`prediction_markets.py`):
+- **Topic.** The title is about the Gulf conflict or crude price levels, by keyword. Elections, leadership, sports, word-mention markets, Lebanon, Gaza, Ukraine and Russia are excluded.
+- **Volume.** At least 10,000 in all-time volume: dollars on Polymarket, $1 contracts on Kalshi.
+- **Period.** The market closes on or after January 1, 2026, and is open for at least 7 days. One-day markets have no history to compare against.
+
+**What was collected on October 5, 2026**
+
+| Platform | Topic | Markets | Daily readings | From |
+|---|---|---|---|---|
+| Polymarket | Gulf conflict | 834 | 22,019 | June 2025 |
+| Polymarket | Oil price | 332 | 10,015 | Dec 2025 |
+| Kalshi | Gulf conflict | 141 | 4,882 | Jan 2026 |
+| Kalshi | Oil price | 214 | 5,347 | Mar 2026 |
+
+1,374 of the 1,521 markets have already closed. Their history is kept because rows are only ever added or updated, never deleted.
+
+**Two object types.** `prediction_market` has one row per market, and `market_reading` has one row per market per day.
+
+**Data gaps**
+- **Polymarket daily volume.** Polymarket publishes daily prices but only all-time volume. Each run saves the all-time total, so daily Polymarket volume can be measured only from October 5, 2026 onward.
+- **Kalshi.** Kalshi gives daily volume for the full history. 922 Kalshi days have no price because nothing traded that day.
+
+**Privacy.** Only market-level fields are stored, and the tests check that platform address fields never reach a table. No trade-level or account data is requested. Activity is reported in aggregate only.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -222,6 +269,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 
 - The score uses US data only and measures US conditions, not global ones.
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
+- Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
 - Forward windows overlap, which overstates how much evidence there is. The every-fourth-week check is reported alongside.
 - Tight and loose weeks come in clusters, so a handful of episodes drive the backtest result.
@@ -248,6 +296,7 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python calculate.py      # five-year comparison, score, and spread
 .venv/bin/python backtest.py       # backtest (METHODS.md section 3)
 .venv/bin/python curve_history.py  # futures curve vs score, history only
+.venv/bin/python fetch_markets.py  # prediction market odds (no key needed); re-run daily
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -269,6 +318,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `backtest.py` | Four-week price changes after tight, loose, and all weeks |
 | `futures.py` | Futures curve gap and backwardation/contango state (history only) |
 | `curve_history.py` | How often the curve agreed with the score, 2010 to April 2024 |
+| `prediction_markets.py` | Polymarket and Kalshi clients and the market selection rule |
+| `fetch_markets.py` | Saves prediction market odds; add or update only, never delete |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 
