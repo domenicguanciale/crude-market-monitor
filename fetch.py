@@ -20,6 +20,7 @@ WEEKLY = {
     "WPULEUS3": "utilization",
     "WCRFPUS2": "production",
     "WCREXUS2": "exports",
+    "WCSSTUS1": "spr_stocks",   # Strategic Petroleum Reserve, context only (item 9)
 }
 
 # Daily price series -> benchmark name in price_series
@@ -63,8 +64,8 @@ def store(con, weekly, prices):
     con.execute("BEGIN TRANSACTION")
     con.execute("DELETE FROM weekly_reading")
     con.execute("""
-        INSERT INTO weekly_reading (week_ending, crude_stocks, distillate_stocks, utilization, production, exports)
-        SELECT week_ending, crude_stocks, distillate_stocks, utilization, production, exports FROM weekly
+        INSERT INTO weekly_reading (week_ending, crude_stocks, distillate_stocks, utilization, production, exports, spr_stocks)
+        SELECT week_ending, crude_stocks, distillate_stocks, utilization, production, exports, spr_stocks FROM weekly
     """)
     con.execute("DELETE FROM price_series")
     con.execute("INSERT INTO price_series SELECT benchmark, price_date, price FROM prices")

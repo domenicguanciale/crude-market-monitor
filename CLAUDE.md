@@ -117,14 +117,19 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Never store article text, only quotes of 25 words or fewer. The vocabulary matches EVENTS_STARTER.csv. Wording is neutral.
 - `anthropic` is an added dependency beyond the brief's tool list, approved by the user's choice of an API key.
 
+## Global side (expansion item 9)
+
+- SPR: EIA `WCSSTUS1` on `petroleum/stoc/wstk`, confirmed live, stored as `weekly_reading.spr_stocks`. Context only, not in the score.
+- Chokepoints: IMF PortWatch public ArcGIS (`Daily_Chokepoints_Data`, `PortWatch_chokepoints_database`), no key. IMF terms allow publishing with attribution, so it is **publishable**. Six chokepoints are stored as `facility` rows with latitude and longitude; daily counts are in `chokepoint_transit`.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending).
-- Next: 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending), item 9 (chokepoints and SPR).
+- Next: 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.

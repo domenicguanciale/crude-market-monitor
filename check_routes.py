@@ -17,6 +17,7 @@ SERIES_ROUTES = {
     "WPULEUS3": "petroleum/pnp/wiup",   # Refinery utilization
     "WCRFPUS2": "petroleum/sum/sndw",   # Crude production
     "WCREXUS2": "petroleum/move/wkly",  # Crude exports
+    "WCSSTUS1": "petroleum/stoc/wstk",  # Strategic Petroleum Reserve crude stocks (item 9)
     "RCLC1": "petroleum/pri/fut",       # WTI futures, contract 1 (history only)
     "RCLC4": "petroleum/pri/fut",       # WTI futures, contract 4 (history only)
 }

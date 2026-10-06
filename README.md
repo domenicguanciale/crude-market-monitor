@@ -2,7 +2,7 @@
 
 A weekly read on how tight the US oil market is, set beside a global price gauge, for a fuel buyer deciding when to lock in a contract or review a hedge.
 
-Data sources: U.S. Energy Information Administration (EIA); FRED, Federal Reserve Bank of St. Louis; CFTC; Polymarket and Kalshi public market data; Caldara and Iacoviello Geopolitical Risk Index (CC BY).
+Data sources: U.S. Energy Information Administration (EIA); FRED, Federal Reserve Bank of St. Louis; CFTC; IMF PortWatch; Polymarket and Kalshi public market data; Caldara and Iacoviello Geopolitical Risk Index (CC BY).
 
 > **This is a market monitoring and research tool. It does not give betting or trading recommendations.** It describes market conditions and how prices behaved in the past. It is a student project and is not investment advice.
 
@@ -167,6 +167,7 @@ Seven live EIA series and two history-only futures series. Every route and serie
 | Refinery utilization | `WPULEUS3` | % of operable capacity | `petroleum/pnp/wiup` |
 | Crude production | `WCRFPUS2` | thousand barrels/day | `petroleum/sum/sndw` |
 | Crude exports | `WCREXUS2` | thousand barrels/day | `petroleum/move/wkly` |
+| Strategic Petroleum Reserve crude stocks (context) | `WCSSTUS1` | thousand barrels | `petroleum/stoc/wstk` |
 | WTI futures, contract 1 (history only) | `RCLC1` | $/barrel, daily, ends Apr 5, 2024 | `petroleum/pri/fut` |
 | WTI futures, contract 4 (history only) | `RCLC4` | $/barrel, daily, ends Apr 5, 2024 | `petroleum/pri/fut` |
 
@@ -352,6 +353,24 @@ This describes positioning. It is not a trading signal.
 .venv/bin/python news_reader.py approve 1 --episode iran_war_2026
 ```
 
+## The global side: chokepoints and the strategic reserve (expansion item 9)
+
+**Chokepoint transits.** `chokepoints.py` loads daily ship transits from **IMF PortWatch**, which counts ships from satellite AIS signals. It covers six oil chokepoints: Hormuz, Bab el-Mandeb, Suez, Malacca, the Cape of Good Hope and the Bosporus, daily from January 2019 to September 27, 2026.
+- Each chokepoint is stored as a facility with its latitude and longitude, for the showcase map; daily counts go in `chokepoint_transit`.
+- **Source and terms**, confirmed October 5, 2026: PortWatch's public ArcGIS services, no key. IMF data may be published and redistributed with attribution. Credit: IMF PortWatch (portwatch.imf.org).
+
+| Average tankers per day | 2019 to 2025 | Feb 2026 | Mar 2026 | Jun 2026 | Sep 2026 |
+|---|---|---|---|---|---|
+| Strait of Hormuz | 50.2 | 43.5 | **0.9** | 5.4 | **1.0** |
+| Cape of Good Hope | 13.0 | 13.5 | 17.7 | 20.1 | 17.7 |
+| Malacca Strait | 75.6 | 85.6 | 76.0 | 69.7 | 69.9 |
+| Bab el-Mandeb Strait | 17.8 | 13.8 | 15.0 | 13.8 | 7.9 |
+
+- **Hormuz** tanker transits fell about 98% from March 2026 and have stayed between 1 and 5 a day.
+- **The Cape of Good Hope** carried more tankers through the spring.
+
+**Strategic Petroleum Reserve.** EIA weekly series `WCSSTUS1`, confirmed on the live API, is stored as `spr_stocks` on each weekly reading. It is context only, not part of the score. The reserve stood at **413 million barrels in early April 2026 and 284 million on September 25**, a drawdown of about 130 million barrels. Its record was 727 million in January 2010.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -393,6 +412,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - OVX, and later the NASDAQ index and the high-yield spread, are third-party copyrighted on FRED. They are used for personal research and are not published in the showcase.
 - The GPR index counts newspaper coverage. It measures attention to geopolitical tension, not the tension itself, and its articles often describe the previous day.
 - News reader extractions are proposals from a language model and can be wrong. Every row is reviewed before approval and stays "not hand-checked" until verified against its source.
+- PortWatch counts ships from AIS signals. Ships that switch off their transponders are missed, which matters most in a conflict zone.
 - Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
 - Unusual-activity days show markets moving together. They do not show who traded or why, and activity on or after an event is a reaction. Days near the 20-market minimum rest on small counts.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
@@ -426,6 +446,7 @@ Create a file named `.env` in the project folder with the lines `EIA_API_KEY=you
 .venv/bin/python cot.py            # CFTC positioning; new data each Friday
 .venv/bin/python fred.py           # OVX and other daily series (needs FRED_API_KEY)
 .venv/bin/python gpr.py            # Geopolitical Risk Index; updated each Monday
+.venv/bin/python chokepoints.py    # chokepoint transits (IMF PortWatch)
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -454,6 +475,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
 | `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
 | `gpr.py` | Daily Geopolitical Risk Index, with acts and threats sub-indexes (CC BY) |
+| `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |

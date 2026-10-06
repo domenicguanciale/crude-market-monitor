@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS facility (
     name            VARCHAR NOT NULL,
     type            VARCHAR,          -- field, pipeline, terminal, refinery, route
     country         VARCHAR,
-    capacity_bpd    DOUBLE            -- barrels per day
+    capacity_bpd    DOUBLE,           -- barrels per day
+    latitude        DOUBLE,           -- for the showcase map
+    longitude       DOUBLE
 );
 
 -- Disruption event: something that took supply offline or threatened to (filled in version 2)
@@ -56,6 +58,7 @@ CREATE TABLE IF NOT EXISTS weekly_reading (
     utilization        DOUBLE,   -- percent of operable capacity (WPULEUS3)
     production         DOUBLE,   -- thousand barrels per day (WCRFPUS2)
     exports            DOUBLE,   -- thousand barrels per day (WCREXUS2)
+    spr_stocks         DOUBLE,   -- thousand barrels in the Strategic Petroleum Reserve (WCSSTUS1), item 9
     -- ISO week of the week-ending date (METHODS.md section 1)
     week_year          INTEGER,
     week_number        INTEGER,  -- 1 to 53
@@ -151,6 +154,18 @@ CREATE TABLE IF NOT EXISTS staged_event (
     reviewed_at          TIMESTAMP
 );
 
+-- Chokepoint transit: one chokepoint on one day, from IMF PortWatch (item 9). Ships are counted
+-- from satellite AIS signals; capacity is the deadweight tonnage of the ships, in metric tons.
+CREATE TABLE IF NOT EXISTS chokepoint_transit (
+    facility_id        VARCHAR NOT NULL REFERENCES facility (facility_id),
+    transit_date       DATE    NOT NULL,
+    tankers            INTEGER,
+    all_ships          INTEGER,
+    tanker_capacity_t  DOUBLE,
+    all_capacity_t     DOUBLE,
+    PRIMARY KEY (facility_id, transit_date)
+);
+
 -- Daily indicator: one value of one daily market or risk series on one day (items 6, 7, 10),
 -- e.g. 'OVX'. Which series may be published outside this machine is recorded in fred.INDICATORS.
 CREATE TABLE IF NOT EXISTS daily_indicator (
@@ -177,6 +192,9 @@ CREATE TABLE IF NOT EXISTS market_reading (
 # Columns added after a table was first created. CREATE TABLE IF NOT EXISTS does not add columns
 # to an existing table, so these are added here, once, without touching existing rows.
 UPGRADES = [
+    "ALTER TABLE facility ADD COLUMN IF NOT EXISTS latitude DOUBLE",
+    "ALTER TABLE facility ADD COLUMN IF NOT EXISTS longitude DOUBLE",
+    "ALTER TABLE weekly_reading ADD COLUMN IF NOT EXISTS spr_stocks DOUBLE",
     "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS hand_checked BOOLEAN DEFAULT FALSE",
     "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS episode VARCHAR",
 ]

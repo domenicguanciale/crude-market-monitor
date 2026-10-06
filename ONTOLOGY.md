@@ -6,13 +6,14 @@ The ontology is the list of things this project tracks, what we record about eac
 
 | Object | DuckDB table | Key properties | Links to |
 |---|---|---|---|
-| Facility | `facility` | Name, type, country, barrels per day | Disruption events |
+| Facility | `facility` | Name, type, country, barrels per day, latitude, longitude. Includes six oil chokepoints (type 'tanker or shipping lane') | Disruption events, chokepoint transits |
 | Disruption event | `disruption_event` | Date, day zero, cause, barrels per day offline, physical loss (yes or no), hand-checked (yes or no), episode | Facility, sources, weekly reading |
 | Price series | `price_series` | Benchmark (WTI, Brent, WTI future 1, WTI future 4), date, price | Disruption events (through price reactions) |
-| Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, tightness score, spread | Disruption events in that week |
+| Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, SPR stocks, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, date | Disruption events |
 | Prediction market | `prediction_market` | Platform (Polymarket, Kalshi), question, outcome, topic (gulf_conflict, oil_price), open and close dates, status, result, all-time volume | Market readings; disruption events by date (item 4) |
 | Trader positioning | `trader_positioning` | Report date (Tuesday measured), released (Friday published), open interest, large speculator long and short, commercial and small trader positions, net speculative position | Weekly reading (same week) |
+| Chokepoint transit | `chokepoint_transit` | Facility (chokepoint), date, tankers, all ships, tanker and total deadweight tons (IMF PortWatch) | Facility |
 | Staged event | `staged_event` | A disruption event proposed by the AI news reader: extracted fields, evidence quotes, model, status (pending, approved, rejected) | Becomes a disruption event, with facility and source, only when the user approves it |
 | Daily indicator | `daily_indicator` | Indicator name (OVX, GPR, GPR_ACTS, GPR_THREATS, ...), date, value. Owner and publishing terms are recorded in `fred.INDICATORS` and `gpr.OWNER` / `gpr.PUBLISHABLE` | Price series and disruption events by date |
 | Market reading | `market_reading` | Market, date, price (implied chance, 0 to 1), volume that day, all-time volume at snapshot | Prediction market |
