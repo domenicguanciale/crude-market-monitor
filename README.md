@@ -323,6 +323,31 @@ This describes positioning. It is not a trading signal.
 - **In 2026**, the monthly average jumped from 117 in February to **325 in March**, with acts at 443, more than four times the long-run normal. It then fell back to 244 in April, 200 in May and 123 in August. September averaged 166.
 - **The last 30 days** averaged 167, about 1.7 times the long-run baseline.
 
+## AI news reader (expansion item 8)
+
+`news_reader.py` turns a pasted news article into a **proposed** disruption event for you to review. It never writes to the events table on its own.
+
+1. **`stage`** sends the article to Claude (`claude-opus-5-5`, through the official `anthropic` SDK). Claude returns a fixed set of fields: event date, facility, country, cause, product, whether barrels were lost, barrels per day offline, and short verbatim evidence quotes. The answer is validated against a schema and saved in `staged_event` as **pending**.
+2. **`show`**, **`list`** and **`edit`** let you review the row and correct any field. Edits are checked against the same rules.
+3. **`approve`** prints the row and writes it to `disruption_event`, with its facility and source, **only after you type "yes"**. Rows are stored as **not hand-checked** unless you pass `--checked` after verifying them against the source. **`reject`** keeps the row for the record.
+
+**Rules built into the prompt and the code**
+- Neutral wording: dates, volumes and prices only, with no characterisation of any party.
+- The date is when the event happened, not when the article was published.
+- No estimated barrel figures; the cause must come from the event table's own list.
+- The article is treated as untrusted data: instructions inside it are ignored.
+- The article text is not stored, only quotes of 25 words or fewer.
+- If a safety classifier declines, the API retries on Anthropic's recommended fallback model (`fallbacks: "default"`). If that also declines, nothing is staged.
+
+**Setup.** Add `ANTHROPIC_API_KEY` to `.env`; keys come from https://console.anthropic.com, billed per use. One article costs roughly 1 to 5 cents at Claude Opus 5.5 prices ($4 per million input tokens, $20 per million output tokens).
+
+```bash
+.venv/bin/python news_reader.py stage --url https://www.eia.gov/... --publisher EIA --file article.txt
+.venv/bin/python news_reader.py show 1
+.venv/bin/python news_reader.py edit 1 capacity_offline_bpd=2000000
+.venv/bin/python news_reader.py approve 1 --episode iran_war_2026
+```
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -363,6 +388,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
 - OVX, and later the NASDAQ index and the high-yield spread, are third-party copyrighted on FRED. They are used for personal research and are not published in the showcase.
 - The GPR index counts newspaper coverage. It measures attention to geopolitical tension, not the tension itself, and its articles often describe the previous day.
+- News reader extractions are proposals from a language model and can be wrong. Every row is reviewed before approval and stays "not hand-checked" until verified against its source.
 - Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
 - Unusual-activity days show markets moving together. They do not show who traded or why, and activity on or after an event is a reaction. Days near the 20-market minimum rest on small counts.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
@@ -383,7 +409,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Create a file named `.env` in the project folder with two lines, `EIA_API_KEY=your_key` and `FRED_API_KEY=your_key`. Git ignores this file, so the key never gets committed.
+Create a file named `.env` in the project folder with the lines `EIA_API_KEY=your_key` and `FRED_API_KEY=your_key`, plus `ANTHROPIC_API_KEY=your_key` if you use the news reader. Git ignores this file, so the key never gets committed.
 
 ```bash
 .venv/bin/python check_routes.py   # confirm every series is on its route
@@ -424,6 +450,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
 | `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
 | `gpr.py` | Daily Geopolitical Risk Index, with acts and threats sub-indexes (CC BY) |
+| `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 

@@ -123,6 +123,34 @@ CREATE TABLE IF NOT EXISTS trader_positioning (
     spec_net_pct_oi   DOUBLE              -- calculated: spec_net / open_interest
 );
 
+-- Staged event: a disruption event proposed by the AI news reader (item 8), waiting for review.
+-- Only news_reader.approve() copies a row into disruption_event, after the user types "yes".
+CREATE TABLE IF NOT EXISTS staged_event (
+    staged_id            INTEGER PRIMARY KEY,
+    staged_at            TIMESTAMP,
+    status               VARCHAR,          -- pending, approved, rejected
+    article_url          VARCHAR,
+    article_publisher    VARCHAR,
+    article_published    DATE,
+    is_supply_event      BOOLEAN,
+    event_name           VARCHAR,
+    event_date           DATE,
+    event_date_note      VARCHAR,
+    country              VARCHAR,
+    facility_or_route    VARCHAR,
+    facility_type        VARCHAR,
+    cause                VARCHAR,
+    product              VARCHAR,
+    physical_supply_lost VARCHAR,          -- yes, no, or empty if unclear
+    capacity_offline_bpd BIGINT,
+    capacity_note        VARCHAR,
+    evidence             VARCHAR,          -- JSON list of {field, quote}, quotes 25 words or fewer
+    uncertainties        VARCHAR,          -- JSON list of strings
+    model                VARCHAR,          -- the model that produced the extraction
+    event_id             VARCHAR,          -- set on approval
+    reviewed_at          TIMESTAMP
+);
+
 -- Daily indicator: one value of one daily market or risk series on one day (items 6, 7, 10),
 -- e.g. 'OVX'. Which series may be published outside this machine is recorded in fred.INDICATORS.
 CREATE TABLE IF NOT EXISTS daily_indicator (

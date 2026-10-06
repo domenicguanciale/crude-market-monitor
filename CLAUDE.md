@@ -109,14 +109,21 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `daily_indicator` (indicator, obs_date, value) holds all daily indicator series.
 - GPR (`gpr.py`): daily Stata file from matteoiacoviello.com, CC BY, so **publishable with credit**. It is calendar days, updated Mondays. Indicators are GPR, GPR_ACTS and GPR_THREATS. A day-D value reflects articles published on D.
 
+## AI news reader (expansion item 8)
+
+- The user chose an Anthropic API key (`ANTHROPIC_API_KEY` in `.env`). Model `claude-opus-5-5` via `client.beta.messages.parse` with a Pydantic `Extraction` schema, plus `betas=["server-side-fallback-2026-07-01"]` and `fallbacks="default"`. Check `stop_reason == "refusal"` before using the output.
+- `staged_event` is the only table the reader writes on its own. `approve()` is the only path into `disruption_event`, `facility` and `source`, and needs an explicit "yes". Rows default to `hand_checked = FALSE`; `--checked` means the user verified them.
+- Never store article text, only quotes of 25 words or fewer. The vocabulary matches EVENTS_STARTER.csv. Wording is neutral.
+- `anthropic` is an added dependency beyond the brief's tool list, approved by the user's choice of an API key.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index).
-- Next: 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader; live test waits for ANTHROPIC_API_KEY).
+- Next: 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.
