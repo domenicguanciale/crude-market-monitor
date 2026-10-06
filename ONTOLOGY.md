@@ -13,7 +13,7 @@ The ontology is the list of things this project tracks, what we record about eac
 | Source | `source` | Publisher, link, date | Disruption events |
 | Prediction market | `prediction_market` | Platform (Polymarket, Kalshi), question, outcome, topic (gulf_conflict, oil_price), open and close dates, status, result, all-time volume | Market readings; disruption events by date (item 4) |
 | Trader positioning | `trader_positioning` | Report date (Tuesday measured), released (Friday published), open interest, large speculator long and short, commercial and small trader positions, net speculative position | Weekly reading (same week) |
-| Daily indicator | `daily_indicator` | Indicator name (e.g. OVX), date, value. Owner and publishing terms are recorded in `fred.INDICATORS` | Price series and disruption events by date |
+| Daily indicator | `daily_indicator` | Indicator name (OVX, GPR, GPR_ACTS, GPR_THREATS, ...), date, value. Owner and publishing terms are recorded in `fred.INDICATORS` and `gpr.OWNER` / `gpr.PUBLISHABLE` | Price series and disruption events by date |
 | Market reading | `market_reading` | Market, date, price (implied chance, 0 to 1), volume that day, all-time volume at snapshot | Prediction market |
 
 ## Links

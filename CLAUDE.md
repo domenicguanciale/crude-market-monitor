@@ -107,6 +107,7 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - FRED's terms prohibit scraping, so use the official FRED API with `FRED_API_KEY` in `.env`, not the `fredgraph.csv` links.
 - Third-party series on FRED are for personal use only unless the owner grants permission. `fred.INDICATORS[...]["publishable"]` records this per series. OVX (CBOE), NASDAQ (Nasdaq) and the ICE BofA high-yield spread are not publishable. The 10-year Treasury yield is public domain. **The item 12 showcase may only publish series marked publishable**; the user decides the rest at item 12.
 - `daily_indicator` (indicator, obs_date, value) holds all daily indicator series.
+- GPR (`gpr.py`): daily Stata file from matteoiacoviello.com, CC BY, so **publishable with credit**. It is calendar days, updated Mondays. Indicators are GPR, GPR_ACTS and GPR_THREATS. A day-D value reflects articles published on D.
 
 ## Pipeline
 
@@ -114,8 +115,8 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API).
-- Next: 7 GPR index, 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index).
+- Next: 8 AI news reader (ask how the user wants to supply model access first), 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.

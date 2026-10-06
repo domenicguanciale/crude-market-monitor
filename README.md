@@ -2,7 +2,7 @@
 
 A weekly read on how tight the US oil market is, set beside a global price gauge, for a fuel buyer deciding when to lock in a contract or review a hedge.
 
-Data sources: U.S. Energy Information Administration (EIA); FRED, Federal Reserve Bank of St. Louis; CFTC; Polymarket and Kalshi public market data.
+Data sources: U.S. Energy Information Administration (EIA); FRED, Federal Reserve Bank of St. Louis; CFTC; Polymarket and Kalshi public market data; Caldara and Iacoviello Geopolitical Risk Index (CC BY).
 
 > **This is a market monitoring and research tool. It does not give betting or trading recommendations.** It describes market conditions and how prices behaved in the past. It is a student project and is not investment advice.
 
@@ -309,6 +309,20 @@ This describes positioning. It is not a trading signal.
 - **Since then:** volatility eased through April (average 80) and May (71), and has held at 50 to 57 since June.
 - **Latest:** 51.0 on October 2, about 1.5 times the 2010 to 2025 median of 34. Options traders still expect larger-than-usual swings.
 
+## Geopolitical Risk Index, daily (expansion item 7)
+
+`gpr.py` loads the daily **Geopolitical Risk (GPR) Index** of Caldara and Iacoviello. It counts articles about geopolitical tension in 10 major newspapers, scaled so that 1985 to 2019 averages 100. Two sub-indexes split the articles into **acts**, such as attacks and war, and **threats**, such as warnings and buildups.
+
+**Source and licence.** The daily Stata file from https://www.matteoiacoviello.com/gpr.htm, confirmed on October 5, 2026. It needs no key and is updated every Monday. The data is open access under **Creative Commons BY**, so it may be published with credit. Cite: Caldara, Dario and Matteo Iacoviello (2022), "Measuring Geopolitical Risk," *American Economic Review* 112(4), 1194–1225. Data downloaded from https://www.matteoiacoviello.com/gpr.htm on October 5, 2026.
+
+**Timing.** A value on day D reflects articles *published* on D, which often report events from D−1. Allow for that when lining it up with events.
+
+**What it shows** (15,253 days, January 1985 to October 5, 2026)
+- **Record highs** are in late September 2001, peaking at 1,046.
+- **Yearly averages** rose from about 80 in 2020 and 2021 to 153 in 2022. **2026 averages 188**, the highest year since 2019.
+- **In 2026**, the monthly average jumped from 117 in February to **325 in March**, with acts at 443, more than four times the long-run normal. It then fell back to 244 in April, 200 in May and 123 in August. September averaged 166.
+- **The last 30 days** averaged 167, about 1.7 times the long-run baseline.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -348,6 +362,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - The score uses US data only and measures US conditions, not global ones.
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
 - OVX, and later the NASDAQ index and the high-yield spread, are third-party copyrighted on FRED. They are used for personal research and are not published in the showcase.
+- The GPR index counts newspaper coverage. It measures attention to geopolitical tension, not the tension itself, and its articles often describe the previous day.
 - Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
 - Unusual-activity days show markets moving together. They do not show who traded or why, and activity on or after an event is a reaction. Days near the 20-market minimum rest on small counts.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
@@ -380,6 +395,7 @@ Create a file named `.env` in the project folder with two lines, `EIA_API_KEY=yo
 .venv/bin/python unusual_activity.py  # unusual activity, aggregate only
 .venv/bin/python cot.py            # CFTC positioning; new data each Friday
 .venv/bin/python fred.py           # OVX and other daily series (needs FRED_API_KEY)
+.venv/bin/python gpr.py            # Geopolitical Risk Index; updated each Monday
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -407,6 +423,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `unusual_activity.py` | Aggregate report of unusual days and the comparison with hand-checked events |
 | `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
 | `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
+| `gpr.py` | Daily Geopolitical Risk Index, with acts and threats sub-indexes (CC BY) |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 
