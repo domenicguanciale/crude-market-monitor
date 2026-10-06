@@ -9,14 +9,18 @@ Nothing reaches the events table without your approval:
            It is stored as NOT hand-checked unless you pass --checked after verifying it against the source.
   reject   marks a staged row rejected (kept for the record)
 
-Examples:
-  .venv/bin/python news_reader.py stage --url https://www.eia.gov/... --publisher EIA < article.txt
-  .venv/bin/python news_reader.py stage --url https://... --publisher Reuters     (paste, then Ctrl-D)
+Two ways to get the extraction (the user chose the first, no API key):
+  1. In a Claude Code session: paste the article to Claude, which writes the extraction to a JSON file
+     in staging/ following the Extraction schema below, then runs
+       .venv/bin/python news_reader.py stage --extraction staging/<name>.json --url https://... --publisher EIA
+  2. Optional, with ANTHROPIC_API_KEY in .env: the script calls claude-opus-5-5 itself
+       .venv/bin/python news_reader.py stage --url https://... --publisher Reuters --file article.txt
+
+Either way the extraction is validated against the same schema, and review is the same:
   .venv/bin/python news_reader.py approve 3 --event-id E22 --episode iran_war_2026
 
-Model access: ANTHROPIC_API_KEY in .env (console.anthropic.com). Model: claude-opus-5-5.
-The article text is sent to the Anthropic API for extraction and is not stored here; only short
-evidence quotes (25 words or fewer) are kept. Wording stays neutral: dates, volumes and prices only.
+The article text is not stored here; only short evidence quotes (25 words or fewer) are kept.
+Wording stays neutral: dates, volumes and prices only.
 """
 
 import argparse
@@ -26,7 +30,6 @@ import re
 import sys
 from typing import List, Literal, Optional
 
-import anthropic
 from pydantic import BaseModel, Field
 
 import db
@@ -84,8 +87,17 @@ Rules:
 
 
 # ---------------------------------------------------------------- the model call
+def from_json_file(path):
+    """Path 1 (no API key): an extraction written in a Claude Code session, validated against the schema."""
+    def extractor(_article_text):
+        with open(path, encoding="utf-8") as f:
+            return Extraction.model_validate(json.load(f)), "claude-code-session"
+    return extractor
+
+
 def call_claude(article_text):
-    """Send the article to Claude and return a validated Extraction. Raises on refusal or failure."""
+    """Path 2 (optional, needs ANTHROPIC_API_KEY): send the article to Claude and return a validated Extraction."""
+    import anthropic   # only needed on this path
     client = anthropic.Anthropic(api_key=load_api_key("ANTHROPIC_API_KEY"))
     try:
         response = client.beta.messages.parse(
@@ -126,7 +138,7 @@ def valid_date(text):
 
 def stage(con, article_text, url, publisher, published=None, extractor=call_claude):
     """Extract and save a proposed event. Returns the staged_id. Writes only to staged_event."""
-    if not article_text.strip():
+    if extractor is call_claude and not article_text.strip():
         raise ValueError("The article text is empty.")
     x, model = extractor(article_text)
     try:
@@ -257,7 +269,8 @@ def main(argv=None):
     s.add_argument("--url", required=True)
     s.add_argument("--publisher", required=True)
     s.add_argument("--published", help="article date, YYYY-MM-DD")
-    s.add_argument("--file", help="text file with the article (otherwise paste it, then press Ctrl-D)")
+    s.add_argument("--extraction", help="JSON extraction written in a Claude Code session (no API key needed)")
+    s.add_argument("--file", help="API path: text file with the article (otherwise paste it, then press Ctrl-D)")
     lst = sub.add_parser("list")
     lst.add_argument("--all", action="store_true", help="include approved and rejected rows")
     sub.add_parser("show").add_argument("id", type=int)
@@ -275,12 +288,16 @@ def main(argv=None):
     con = db.connect()
     try:
         if args.command == "stage":
-            if args.file:
-                text = open(args.file, encoding="utf-8").read()
+            if args.extraction:
+                staged_id = stage(con, "", args.url, args.publisher, args.published,
+                                  extractor=from_json_file(args.extraction))
             else:
-                print("Paste the article, then press Ctrl-D on a new line:", file=sys.stderr)
-                text = sys.stdin.read()
-            staged_id = stage(con, text, args.url, args.publisher, args.published)
+                if args.file:
+                    text = open(args.file, encoding="utf-8").read()
+                else:
+                    print("Paste the article, then press Ctrl-D on a new line:", file=sys.stderr)
+                    text = sys.stdin.read()
+                staged_id = stage(con, text, args.url, args.publisher, args.published)
             print(describe(get(con, staged_id)))
             print(f"\nStaged as row {staged_id}. Review it, edit if needed, then: approve {staged_id}")
         elif args.command == "list":

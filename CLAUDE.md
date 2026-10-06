@@ -111,7 +111,8 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 
 ## AI news reader (expansion item 8)
 
-- The user chose an Anthropic API key (`ANTHROPIC_API_KEY` in `.env`). Model `claude-opus-5-5` via `client.beta.messages.parse` with a Pydantic `Extraction` schema, plus `betas=["server-side-fallback-2026-07-01"]` and `fallbacks="default"`. Check `stop_reason == "refusal"` before using the output.
+- **Default path, no API key (the user's decision, Oct 5, 2026).** The user pastes an article in a Claude Code session. Claude writes an `Extraction` JSON to `staging/<name>.json` (git-ignored) following the schema and the SYSTEM rules in `news_reader.py`, then runs `news_reader.py stage --extraction ... --url ... --publisher ...`. Never estimate barrels; quotes must be verbatim and 25 words or fewer.
+- Optional API path, kept but unused: `ANTHROPIC_API_KEY`, `claude-opus-5-5` via `client.beta.messages.parse` with `fallbacks="default"` (beta `server-side-fallback-2026-07-01`). `anthropic` is imported only on that path.
 - `staged_event` is the only table the reader writes on its own. `approve()` is the only path into `disruption_event`, `facility` and `source`, and needs an explicit "yes". Rows default to `hand_checked = FALSE`; `--checked` means the user verified them.
 - Never store article text, only quotes of 25 words or fewer. The vocabulary matches EVENTS_STARTER.csv. Wording is neutral.
 - `anthropic` is an added dependency beyond the brief's tool list, approved by the user's choice of an API key.
@@ -122,7 +123,7 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader; live test waits for ANTHROPIC_API_KEY).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending).
 - Next: 9, 10, 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.

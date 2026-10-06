@@ -12,3 +12,5 @@ __pycache__/
 
 # macOS
 .DS_Store
+# Extractions written in Claude Code sessions (may quote articles)
+staging/

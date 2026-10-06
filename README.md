@@ -327,7 +327,9 @@ This describes positioning. It is not a trading signal.
 
 `news_reader.py` turns a pasted news article into a **proposed** disruption event for you to review. It never writes to the events table on its own.
 
-1. **`stage`** sends the article to Claude (`claude-opus-5-5`, through the official `anthropic` SDK). Claude returns a fixed set of fields: event date, facility, country, cause, product, whether barrels were lost, barrels per day offline, and short verbatim evidence quotes. The answer is validated against a schema and saved in `staged_event` as **pending**.
+1. **`stage`** turns an extraction into a **pending** row in `staged_event`. The extraction is a fixed set of fields: event date, facility, country, cause, product, whether barrels were lost, barrels per day offline, and short verbatim evidence quotes. It is validated against a schema either way. There are two ways to produce it:
+   - **No API key (the default here).** Paste the article to Claude in a Claude Code session. Claude writes the extraction to a JSON file in `staging/`, which is not committed, and runs `stage --extraction staging/<file>.json`.
+   - **Optional API path.** With `ANTHROPIC_API_KEY` in `.env`, `stage --file article.txt` calls `claude-opus-5-5` itself through the official `anthropic` SDK.
 2. **`show`**, **`list`** and **`edit`** let you review the row and correct any field. Edits are checked against the same rules.
 3. **`approve`** prints the row and writes it to `disruption_event`, with its facility and source, **only after you type "yes"**. Rows are stored as **not hand-checked** unless you pass `--checked` after verifying them against the source. **`reject`** keeps the row for the record.
 
@@ -339,10 +341,12 @@ This describes positioning. It is not a trading signal.
 - The article text is not stored, only quotes of 25 words or fewer.
 - If a safety classifier declines, the API retries on Anthropic's recommended fallback model (`fallbacks: "default"`). If that also declines, nothing is staged.
 
-**Setup.** Add `ANTHROPIC_API_KEY` to `.env`; keys come from https://console.anthropic.com, billed per use. One article costs roughly 1 to 5 cents at Claude Opus 5.5 prices ($4 per million input tokens, $20 per million output tokens).
+**Setup.** The default path needs no key. The optional API path needs `ANTHROPIC_API_KEY` in `.env`; keys come from https://console.anthropic.com, billed per use, roughly 1 to 5 cents per article.
+
+**Demonstration.** EIA's public-domain article on the 2019 Abqaiq outage was staged as row 1 and left pending for review. The article gives Abqaiq's capacity (7 million b/d) and its output on September 17 (2 million b/d), but never states the barrels taken offline. Under the no-estimate rule, `capacity_offline_bpd` stays empty, with a note saying another source is needed.
 
 ```bash
-.venv/bin/python news_reader.py stage --url https://www.eia.gov/... --publisher EIA --file article.txt
+.venv/bin/python news_reader.py stage --extraction staging/eia-41413-abqaiq.json --url https://www.eia.gov/todayinenergy/detail.php?id=41413 --publisher "EIA Today in Energy"
 .venv/bin/python news_reader.py show 1
 .venv/bin/python news_reader.py edit 1 capacity_offline_bpd=2000000
 .venv/bin/python news_reader.py approve 1 --episode iran_war_2026
@@ -409,7 +413,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Create a file named `.env` in the project folder with the lines `EIA_API_KEY=your_key` and `FRED_API_KEY=your_key`, plus `ANTHROPIC_API_KEY=your_key` if you use the news reader. Git ignores this file, so the key never gets committed.
+Create a file named `.env` in the project folder with the lines `EIA_API_KEY=your_key` and `FRED_API_KEY=your_key`, plus `ANTHROPIC_API_KEY=your_key` only if you use the news reader's optional API path. Git ignores this file, so the key never gets committed.
 
 ```bash
 .venv/bin/python check_routes.py   # confirm every series is on its route

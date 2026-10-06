@@ -68,6 +68,31 @@ class TestStaging(unittest.TestCase):
             nr.edit(self.con, sid, "status", "approved")                # not editable
 
 
+class TestNoKeyPath(unittest.TestCase):
+    def test_stage_from_session_json(self):
+        import os, tempfile
+        x = fake_extraction()
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            f.write(x.model_dump_json())
+        try:
+            con = db.connect(":memory:")
+            sid = nr.stage(con, "", "https://example.org/a", "EIA", extractor=nr.from_json_file(f.name))
+            row = nr.get(con, sid)
+            self.assertEqual((row["model"], row["capacity_offline_bpd"]), ("claude-code-session", 2_000_000))
+        finally:
+            os.unlink(f.name)
+
+    def test_session_json_must_fit_the_schema(self):
+        import os, tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"event_name": "x", "cause": "not a cause"}, f)
+        try:
+            with self.assertRaises(Exception):
+                nr.stage(db.connect(":memory:"), "", "u", "p", extractor=nr.from_json_file(f.name))
+        finally:
+            os.unlink(f.name)
+
+
 class TestApproval(unittest.TestCase):
     def setUp(self):
         self.con = db.connect(":memory:")
