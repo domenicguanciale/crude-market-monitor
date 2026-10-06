@@ -104,6 +104,25 @@ CREATE TABLE IF NOT EXISTS prediction_market (
     last_fetched    TIMESTAMP
 );
 
+-- Trader positioning: one CFTC Commitments of Traders report for WTI (expansion item 5).
+-- Positions are as of Tuesday and public on Friday: use 'released', never 'report_date', for timing.
+CREATE TABLE IF NOT EXISTS trader_positioning (
+    report_date       DATE PRIMARY KEY,   -- Tuesday the positions were measured
+    released          DATE,               -- Friday the CFTC published them (holidays can delay)
+    week_ending       DATE,               -- EIA week holding that Tuesday; joins to weekly_reading
+    contract_code     VARCHAR,            -- '067651', NYMEX WTI
+    open_interest     DOUBLE,             -- contracts of 1,000 barrels
+    spec_long         DOUBLE,             -- noncommercial (large speculator) long
+    spec_short        DOUBLE,
+    spec_spread       DOUBLE,             -- held long and short at once
+    commercial_long   DOUBLE,             -- hedgers
+    commercial_short  DOUBLE,
+    small_long        DOUBLE,             -- nonreportable (small traders)
+    small_short       DOUBLE,
+    spec_net          DOUBLE,             -- calculated: spec_long - spec_short
+    spec_net_pct_oi   DOUBLE              -- calculated: spec_net / open_interest
+);
+
 -- Market reading: one market on one day. Rows are added or updated, never deleted,
 -- so markets that close and drop off the platforms' lists keep their history here.
 CREATE TABLE IF NOT EXISTS market_reading (

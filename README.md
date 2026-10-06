@@ -100,6 +100,18 @@ erDiagram
         float price "dollars per barrel"
     }
     PREDICTION_MARKET ||--o{ MARKET_READING : "has daily"
+    WEEKLY_READING ||--o| TRADER_POSITIONING : "same week"
+
+    TRADER_POSITIONING {
+        date report_date PK "Tuesday measured"
+        date released "Friday published"
+        date week_ending FK
+        float open_interest
+        float spec_long
+        float spec_short
+        float spec_net "calculated"
+        float spec_net_pct_oi "calculated"
+    }
 
     PREDICTION_MARKET {
         string market_key PK "platform:id"
@@ -264,6 +276,21 @@ Tests cover both sides of the daylight-saving change.
 
 **Reading these results.** An unusual day says only that markets moved together more than usual. Activity on or after an event is a reaction, not foresight. That is why the event comparison looks only at days 4 to 2 before, and always against the base rate.
 
+## Trader positioning: large speculators in WTI (expansion item 5)
+
+`cot.py` loads the CFTC's weekly **Commitments of Traders** report for NYMEX WTI crude, contract code 067651. The series is continuous from 1986 to today under three contract names. The source is the CFTC Public Reporting Environment (Legacy Futures Only report), confirmed live on October 5, 2026; it needs no key.
+
+**What it measures.** In this report, "noncommercial" traders are the CFTC's large speculators: reportable traders who are not hedging. **Net speculative position = noncommercial long − noncommercial short**, also shown as a share of open interest so years with different market sizes compare fairly.
+
+**Timing.** Positions are measured on Tuesday and published on Friday at 3:30 p.m. Eastern, so each row keeps both dates. Anything that tests timing must use `released`. In holiday weeks the CFTC measures on a Monday, Wednesday or Friday instead; the release date is then taken as the first Friday at least two days later.
+
+**What it shows on October 5, 2026**
+- Latest (positions September 29, released October 2): large speculators net long **109,463 contracts, 5.8% of open interest**. That is in the lowest 12% of weekly readings over the last five years.
+- Net speculative length has fallen year by year, from an average of 24% of open interest in 2018 to 7% in 2025 and 2026.
+- In 2026 it rose from 2.9% in early January to 9.9% in early April, then fell to 4.0% in early July. It has since recovered to about 6%.
+
+This describes positioning. It is not a trading signal.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -332,6 +359,7 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python curve_history.py  # futures curve vs score, history only
 .venv/bin/python fetch_markets.py  # prediction market odds (no key needed); re-run daily, about 3 minutes
 .venv/bin/python unusual_activity.py  # unusual activity, aggregate only
+.venv/bin/python cot.py            # CFTC positioning; new data each Friday
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -357,6 +385,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `fetch_markets.py` | Saves prediction market odds; add or update only, never delete; re-runs fetch only recent days |
 | `activity.py` | Unusual-activity rules: market-day flags, unusual topic-days, event window |
 | `unusual_activity.py` | Aggregate report of unusual days and the comparison with hand-checked events |
+| `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 

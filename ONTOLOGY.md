@@ -12,6 +12,7 @@ The ontology is the list of things this project tracks, what we record about eac
 | Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, date | Disruption events |
 | Prediction market | `prediction_market` | Platform (Polymarket, Kalshi), question, outcome, topic (gulf_conflict, oil_price), open and close dates, status, result, all-time volume | Market readings; disruption events by date (item 4) |
+| Trader positioning | `trader_positioning` | Report date (Tuesday measured), released (Friday published), open interest, large speculator long and short, commercial and small trader positions, net speculative position | Weekly reading (same week) |
 | Market reading | `market_reading` | Market, date, price (implied chance, 0 to 1), volume that day, all-time volume at snapshot | Prediction market |
 
 ## Links
@@ -22,6 +23,7 @@ The ontology is the list of things this project tracks, what we record about eac
 - A **disruption event** links to the **price series** through its price reaction around day zero (version 2).
 
 - A **prediction market** has many **market readings**, one per day.
+- A **trader positioning** report falls in one **weekly reading**: the EIA week that holds its measurement day.
 - Prediction markets link to **disruption events** by date only, through the unusual-activity check in item 4. They are never linked to any account or wallet.
 
 ## Calculated properties
@@ -29,6 +31,7 @@ The ontology is the list of things this project tracks, what we record about eac
 These are computed from other data, not fetched.
 
 - **Tightness score** on each weekly reading. Ranges from −3 to +3 and is labelled tight, normal or loose. See METHODS.md section 2.
+- **Net speculative position** (long − short, and as a share of open interest) on each trader positioning report.
 - **Brent minus WTI spread** on each weekly reading. Calculated from the price series.
 - **Futures curve gap and curve state** on each weekly reading, **history only, through April 5, 2024**. The gap is contract 1 minus contract 4 as a share of contract 4. The state is backwardation (tight), contango (loose) or flat. No free live source exists, so these are empty after April 2024.
 
