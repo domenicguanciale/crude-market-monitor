@@ -7,7 +7,7 @@ The ontology is the list of things this project tracks, what we record about eac
 | Object | DuckDB table | Key properties | Links to |
 |---|---|---|---|
 | Facility | `facility` | Name, type, country, barrels per day, latitude, longitude. Includes six oil chokepoints (type 'tanker or shipping lane') | Disruption events, chokepoint transits |
-| Disruption event | `disruption_event` | Date, day zero, cause, barrels per day offline, physical loss (yes or no), hand-checked (yes or no), episode | Facility, sources, weekly reading |
+| Disruption event | `disruption_event` | Date, day zero, cause, barrels per day offline, physical loss (yes or no), hand-checked (yes or no), episode. Loaded by `events.py` from EVENTS_STARTER.csv and data/iran_war_2026.csv, plus approved news-reader rows | Facility, sources, weekly reading |
 | Price series | `price_series` | Benchmark (WTI, Brent, WTI future 1, WTI future 4), date, price | Disruption events (through price reactions) |
 | Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, SPR stocks, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, date | Disruption events |

@@ -383,6 +383,31 @@ This describes positioning. It is not a trading signal.
 
 **Monday summary.** `monday_summary.py` writes `reports/monday_<date>.md` with the latest reading of every gauge, each with its own as-of date: the score, the spread, the reserve, Hormuz transits, GPR, OVX, CFTC positioning, prediction markets tracked, and the three outcome series. It is the weekly post described in the brief: levels and changes, no forecasts.
 
+## The 2026 Iran war as one episode (expansion item 11)
+
+`data/iran_war_2026.csv` is a dated timeline of the war as it affected oil markets, from the start of military action to the September escalation. It was built from starter rows E16 to E21 and the leads in EVENTS_NOTES.md. **Every row has a news-agency or official source. Wikipedia was used only as a pointer to dates.** Wording is neutral: dates, places, volumes and prices.
+
+| Row | Date (alternative) | Event | Cause |
+|---|---|---|---|
+| W01 | Feb 28 | Military action begins; Hormuz tanker traffic largely stops (EIA: 7.5 million b/d shut in during March) | attack |
+| W02 | Mar 2 (Mar 1) | Revolutionary Guards state the strait is closed; shipping lines suspend transits | blockade |
+| W03 | Mar 7 | Kuwait declares force majeure and cuts output | blockade |
+| W04 | Mar 13 (Mar 9) | Saudi Arabia cuts about 2 million b/d (Safaniya, Zuluf shut) | blockade |
+| W05 | Mar 16 | UAE output falls by more than half | blockade |
+| W06 | Mar 17 (Mar 20) | Iraq declares force majeure; Basra output from 3.3 to 0.9 million b/d | blockade |
+| W07 | Apr 7 (Apr 8) | Two-week ceasefire; Iran agrees to reopen the strait | agreement |
+| W08 | Apr 13 | US blockade of ships entering or leaving Iranian ports begins (CENTCOM) | blockade |
+| W09 | Apr 17 | Iran declares the strait open to commercial vessels | agreement |
+| W10 | Apr 21 | Ceasefire extended; blockade of Iranian ports kept | agreement |
+| W11 | Jun 17 (Jun 18) | Islamabad memorandum signed | agreement |
+| W12 | Jun 20 | Iran announces the strait closed again | blockade |
+| W13 | Jul 7 (Jul 8) | Three tankers struck; US strikes follow the next day | attack |
+| W14 | Sep 9 | Attacks on more than a dozen vessels; Brent closes above $100 on Sep 10 | attack |
+
+- **Conflicting sources are recorded, not resolved.** Seven rows carry a `DATES DIFFER` or `PRICES DIFFER` flag with both values. For example, Iraq's force majeure letter is dated March 17 but was reported March 20.
+- **One episode.** All rows share `episode = iran_war_2026`. Their windows overlap, so they are not independent observations. Every result is to be shown with and without the episode.
+- **Nothing is hand-checked yet.** `events.py` loads the starter table and the war table (E16 to E21 are superseded by the W rows that cite them). Each row stays unchecked until you mark it `correct`, `corrected` or `could not confirm` in its CSV. Nothing downstream uses an unchecked row: the unusual-activity comparison, the event study and the showcase all filter on `hand_checked`. `events.py --report` prints progress and the accuracy rate of the AI-drafted rows.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -432,7 +457,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 - Tight and loose weeks come in clusters, so a handful of episodes drive the backtest result.
 - The event table is small, and other news moves prices on the same days. *(Event study: version 2)*
 - The 2026 Strait of Hormuz episode is far larger than any other event and dominates averages. Results are shown with and without it. *(Event study: version 2)*
-- The event table was drafted with AI assistance and hand-checked. The accuracy rate is reported. *(Version 2. Not yet checked.)*
+- The event tables were drafted with AI assistance. Every row must be hand-checked before it is used, and the accuracy rate is reported by `events.py --report`. *(Checking in progress: 0 of 29 so far.)*
 - The tool describes how prices reacted in the past. It does not forecast when disruptions happen or what prices will do.
 - This is a market monitoring and research tool, not betting or trading advice. It is a student project and is not investment advice.
 
@@ -460,6 +485,7 @@ Create a file named `.env` in the project folder with the lines `EIA_API_KEY=you
 .venv/bin/python gpr.py            # Geopolitical Risk Index; updated each Monday
 .venv/bin/python chokepoints.py    # chokepoint transits (IMF PortWatch)
 .venv/bin/python monday_summary.py # the Monday read
+.venv/bin/python events.py         # load the event tables; --report for checking progress
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -489,6 +515,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
 | `gpr.py` | Daily Geopolitical Risk Index, with acts and threats sub-indexes (CC BY) |
 | `monday_summary.py` | Short Monday read of every gauge, for the weekly post |
+| `events.py` | Loads the starter and war event tables; reports hand-checking progress and accuracy |
+| `data/iran_war_2026.csv` | The 2026 Iran war timeline, sourced, one episode, not yet hand-checked |
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |

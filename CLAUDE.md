@@ -123,14 +123,20 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - SPR: EIA `WCSSTUS1` on `petroleum/stoc/wstk`, confirmed live, stored as `weekly_reading.spr_stocks`. Context only, not in the score.
 - Chokepoints: IMF PortWatch public ArcGIS (`Daily_Chokepoints_Data`, `PortWatch_chokepoints_database`), no key. IMF terms allow publishing with attribution, so it is **publishable**. Six chokepoints are stored as `facility` rows with latitude and longitude; daily counts are in `chokepoint_transit`.
 
+## Iran war episode (expansion item 11)
+
+- `data/iran_war_2026.csv` (W01 to W14) is the source of truth for the war, with `episode = iran_war_2026`. It supersedes E16 to E21 through `starter_row`. Every row has news-agency or official sources; Wikipedia is a pointer only. Where sources disagree, keep both (`alt_date`, `date_flag`) and do not resolve on the user's behalf.
+- `hand_checked` in both CSVs: `correct` or `corrected` counts as checked; `could not confirm` or blank does not. Only the user fills it. `events.py` loads both CSVs, replacing E and W rows but never R (news reader) rows. It deletes sources before events in separate statements because of DuckDB's foreign-key limits.
+- Downstream code must filter `WHERE hand_checked`. As of Oct 5, 2026: 0 of 29 checked.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending), item 9 (chokepoints and SPR), item 10 (NASDAQ, 10y, HY spread; monday_summary.py; PROJECT_BRIEF version 2 rewritten).
-- Next: 11 Iran war episode timeline, 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending), item 9 (chokepoints and SPR), item 10 (NASDAQ, 10y, HY spread; monday_summary.py; PROJECT_BRIEF version 2 rewritten), item 11 (war timeline W01-W14, events.py).
+- Next: 12 interactive showcase (show plan and layout first).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.

@@ -40,6 +40,12 @@ What that means for the analysis:
 - **Report results with and without 2026.** One episode this large will drive any average.
 - **Keep the wording neutral.** This is a live conflict. Record dates, volumes, and prices only.
 
+## Update, October 5, 2026: the war rows
+
+Rows E16 to E21 are now superseded by `data/iran_war_2026.csv` (W01 to W14). That file replaces the Wikipedia-only details with news-agency or official sources, records both values where sources disagree (`date_flag`), and adds the leads below that could be dated: the Kuwait and UAE cuts, the ceasefire and its extension, the blockade, the strait reopening and re-closure. Check the W rows instead of E16 to E21. Fill `hand_checked` in either CSV, then run `events.py`.
+
+Still open as leads: QatarEnergy's LNG force majeure (no exact date found, and gas rather than crude), the Fujairah terminal attack, the May 2026 US escort operation, individual tanker strikes, Novorossiysk, and the September pipeline attacks affecting Saudi supply.
+
 ## Weakest rows
 
 | Row | Problem |
