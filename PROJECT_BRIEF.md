@@ -55,9 +55,22 @@ Define this before writing code. One table per object type.
 |---|---|---|
 | 1 | Seven EIA series, five-year comparison, three-input score, spread gauge, Streamlit page, README | About six hours |
 | 1.5 | Backtest: after "tight" weeks, what did prices do over four weeks compared with all weeks | Two to three hours |
-| 2 | Supply Disruption Event Study: hand-check the event table, price reactions over 1, 5, and 20 days, lookup-style scenario tool, map | Six to eight hours |
+| 2 | Supply Disruption Event Study: one event study with two questions (see below). Hand-check the event table first. Map of events and chokepoints | Six to eight hours |
 | 3 | Rebuild in Palantir Foundry and AIP, video under five minutes | Per FOUNDRY_PLAN.md |
 | Ongoing | Post the monitor's read every Monday for eight weeks, misses included | 15 minutes a week |
+
+### Version 2: one event study, two questions
+
+Updated October 5, 2026. Version 2 is a single event study over the hand-checked event table, asking two questions with the same method (METHODS.md section 4: constant-mean abnormal returns, windows of 0 to 1, 0 to 5 and 0 to 20 trading days):
+
+1. **How did oil prices react to each disruption?** Brent and WTI.
+2. **How did tech funding costs react?** The NASDAQ Composite, the 10-year Treasury yield, and the ICE BofA high-yield spread. FRED carries the spread only from October 2023, so reactions to earlier events cannot use it.
+
+Rules carried over from the expansion: use only hand-checked events; treat the 2026 Iran war as one episode with sub-events; show every result with and without it.
+
+**Dropped:** the lookup-style scenario calculator (METHODS.md section 6) and the pyvis network graph. **Kept:** the map, because the showcase replay uses it.
+
+**Not started:** the event study itself waits until the event table has been hand-checked.
 
 ### Version 1 blocks
 
@@ -96,8 +109,7 @@ Note: the four research agents I tried to launch from this chat were stopped at 
 | Charts | Plotly |
 | Web page | Streamlit |
 | Ontology diagram in the README | Mermaid |
-| Network graph (version 2) | pyvis |
-| Map (version 2) | pydeck or Folium |
+| Map (version 2 and the showcase) | pydeck or Folium in the app; the static showcase draws its own |
 
 ## 9. Cautions
 

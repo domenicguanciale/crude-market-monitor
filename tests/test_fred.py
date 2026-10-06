@@ -23,6 +23,9 @@ class TestFred(unittest.TestCase):
             self.assertIn("publishable", meta, name)
             self.assertIn("owner", meta, name)
         self.assertFalse(fred.INDICATORS["OVX"]["publishable"])   # CBOE copyright
+        self.assertFalse(fred.INDICATORS["NASDAQ"]["publishable"])     # Nasdaq copyright
+        self.assertFalse(fred.INDICATORS["HY_SPREAD"]["publishable"])  # ICE: reproduction prohibited
+        self.assertTrue(fred.INDICATORS["UST10Y"]["publishable"])      # Federal Reserve, public domain
 
 
 if __name__ == "__main__":

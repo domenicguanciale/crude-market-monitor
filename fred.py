@@ -23,6 +23,20 @@ INDICATORS = {
             "title": "CBOE Crude Oil ETF Volatility Index",
             "owner": "Chicago Board Options Exchange (copyrighted, reprinted with permission)",
             "publishable": False},
+    # Item 10: outcome series for the event study ("how tech funding costs reacted")
+    "NASDAQ": {"fred_id": "NASDAQCOM", "unit": "index (Feb 5, 1971 = 100)",
+               "title": "NASDAQ Composite Index",
+               "owner": "Nasdaq OMX Group (copyrighted)",
+               "publishable": False},
+    "UST10Y": {"fred_id": "DGS10", "unit": "percent",
+               "title": "10-Year Treasury Constant Maturity Yield",
+               "owner": "Board of Governors of the Federal Reserve System (H.15, public domain)",
+               "publishable": True},
+    "HY_SPREAD": {"fred_id": "BAMLH0A0HYM2", "unit": "percentage points",
+                  "title": "ICE BofA US High Yield Index Option-Adjusted Spread",
+                  "owner": "ICE Data Indices (copyrighted; reproduction prohibited without permission). "
+                           "FRED carries only the last three years (from Oct 6, 2023)",
+                  "publishable": False},
 }
 
 

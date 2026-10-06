@@ -371,6 +371,18 @@ This describes positioning. It is not a trading signal.
 
 **Strategic Petroleum Reserve.** EIA weekly series `WCSSTUS1`, confirmed on the live API, is stored as `spr_stocks` on each weekly reading. It is context only, not part of the score. The reserve stood at **413 million barrels in early April 2026 and 284 million on September 25**, a drawdown of about 130 million barrels. Its record was 727 million in January 2010.
 
+## Financial outcomes and the Monday read (expansion item 10)
+
+**Three daily outcome series** for the version 2 event study ("how did tech funding costs react?") come through the FRED API (`fred.py`):
+
+| Series | FRED id | Coverage | Terms |
+|---|---|---|---|
+| NASDAQ Composite | `NASDAQCOM` | 1971 to today | © Nasdaq. Personal research only, not published |
+| 10-year Treasury yield | `DGS10` | 1962 to today | Federal Reserve H.15, public domain. Publishable |
+| ICE BofA US High Yield spread | `BAMLH0A0HYM2` | **October 6, 2023** to today | © ICE: reproduction prohibited without permission. FRED keeps only the last three years |
+
+**Monday summary.** `monday_summary.py` writes `reports/monday_<date>.md` with the latest reading of every gauge, each with its own as-of date: the score, the spread, the reserve, Hormuz transits, GPR, OVX, CFTC positioning, prediction markets tracked, and the three outcome series. It is the weekly post described in the brief: levels and changes, no forecasts.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -447,6 +459,7 @@ Create a file named `.env` in the project folder with the lines `EIA_API_KEY=you
 .venv/bin/python fred.py           # OVX and other daily series (needs FRED_API_KEY)
 .venv/bin/python gpr.py            # Geopolitical Risk Index; updated each Monday
 .venv/bin/python chokepoints.py    # chokepoint transits (IMF PortWatch)
+.venv/bin/python monday_summary.py # the Monday read
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -475,6 +488,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
 | `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
 | `gpr.py` | Daily Geopolitical Risk Index, with acts and threats sub-indexes (CC BY) |
+| `monday_summary.py` | Short Monday read of every gauge, for the weekly post |
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
@@ -486,5 +500,5 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 |---|---|
 | 1 | This monitor |
 | 1.5 | Backtest (done, results above) |
-| 2 | Supply Disruption Event Study: hand-checked event table, price reactions over 1, 5 and 20 days, scenario lookup, map |
+| 2 | Supply Disruption Event Study: one event study with two questions, how oil prices and how tech funding costs reacted to each hand-checked disruption, plus a map. Not started until the event table is hand-checked |
 | 3 | Rebuild in Palantir Foundry |
