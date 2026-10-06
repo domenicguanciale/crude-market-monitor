@@ -2,7 +2,7 @@
 
 A weekly read on how tight the US oil market is, set beside a global price gauge, for a fuel buyer deciding when to lock in a contract or review a hedge.
 
-Data source: U.S. Energy Information Administration (EIA).
+Data sources: U.S. Energy Information Administration (EIA); FRED, Federal Reserve Bank of St. Louis; CFTC; Polymarket and Kalshi public market data.
 
 > **This is a market monitoring and research tool. It does not give betting or trading recommendations.** It describes market conditions and how prices behaved in the past. It is a student project and is not investment advice.
 
@@ -101,6 +101,12 @@ erDiagram
     }
     PREDICTION_MARKET ||--o{ MARKET_READING : "has daily"
     WEEKLY_READING ||--o| TRADER_POSITIONING : "same week"
+
+    DAILY_INDICATOR {
+        string indicator PK "e.g. OVX"
+        date obs_date PK
+        float value
+    }
 
     TRADER_POSITIONING {
         date report_date PK "Tuesday measured"
@@ -291,6 +297,18 @@ Tests cover both sides of the daylight-saving change.
 
 This describes positioning. It is not a trading signal.
 
+## Oil volatility: OVX (expansion item 6)
+
+`fred.py` loads the **CBOE Crude Oil ETF Volatility Index (OVX)**, which measures the 30-day volatility that options traders expect in crude oil. It comes through the official FRED API, which needs a free `FRED_API_KEY` in `.env`. FRED's terms prohibit scraping, so the website's CSV links are not used.
+
+**Copyright.** OVX belongs to the Chicago Board Options Exchange and appears on FRED with permission. It is used here for personal research only and is **not published** in the public showcase. Source: Chicago Board Options Exchange, CBOE Crude Oil ETF Volatility Index [OVXCLS], retrieved from FRED, Federal Reserve Bank of St. Louis.
+
+**What it shows on October 5, 2026** (4,883 trading days, May 2007 to October 2, 2026)
+- **Highest close on record:** 325 on April 21, 2020, the day after WTI went negative.
+- **2026 high:** 120.9 on March 11. That is the highest since 2020, and the monthly average peaked at 95 in March.
+- **Since then:** volatility eased through April (average 80) and May (71), and has held at 50 to 57 since June.
+- **Latest:** 51.0 on October 2, about 1.5 times the 2010 to 2025 median of 34. Options traders still expect larger-than-usual swings.
+
 ## Backtest: does the score say anything about the next four weeks?
 
 `backtest.py` follows METHODS.md section 3:
@@ -329,6 +347,7 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 
 - The score uses US data only and measures US conditions, not global ones.
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
+- OVX, and later the NASDAQ index and the high-yield spread, are third-party copyrighted on FRED. They are used for personal research and are not published in the showcase.
 - Prediction market prices reflect what traders on two platforms were willing to pay. They are not probabilities this project endorses. Polymarket daily volume exists only from October 5, 2026.
 - Unusual-activity days show markets moving together. They do not show who traded or why, and activity on or after an event is a reaction. Days near the 20-market minimum rest on small counts.
 - Weekly figures are estimates and are sometimes revised. The backtest uses revised data, not the first figures people saw at the time.
@@ -342,14 +361,14 @@ From METHODS.md section 8. Items marked *(later version)* describe parts of the 
 
 ## Run it yourself
 
-You need Python 3.13 and a free EIA API key from https://www.eia.gov/opendata/register.php.
+You need Python 3.13, a free EIA API key from https://www.eia.gov/opendata/register.php, and a free FRED API key from https://fredaccount.stlouisfed.org.
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Create a file named `.env` in the project folder with one line, `EIA_API_KEY=your_key`. Git ignores this file, so the key never gets committed.
+Create a file named `.env` in the project folder with two lines, `EIA_API_KEY=your_key` and `FRED_API_KEY=your_key`. Git ignores this file, so the key never gets committed.
 
 ```bash
 .venv/bin/python check_routes.py   # confirm every series is on its route
@@ -360,6 +379,7 @@ Create a file named `.env` in the project folder with one line, `EIA_API_KEY=you
 .venv/bin/python fetch_markets.py  # prediction market odds (no key needed); re-run daily, about 3 minutes
 .venv/bin/python unusual_activity.py  # unusual activity, aggregate only
 .venv/bin/python cot.py            # CFTC positioning; new data each Friday
+.venv/bin/python fred.py           # OVX and other daily series (needs FRED_API_KEY)
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 ```
@@ -386,6 +406,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `activity.py` | Unusual-activity rules: market-day flags, unusual topic-days, event window |
 | `unusual_activity.py` | Aggregate report of unusual days and the comparison with hand-checked events |
 | `cot.py` | CFTC Commitments of Traders for WTI: large speculators' net position |
+| `fred.py` | Daily series from the FRED API, with each series' owner and publishing terms |
 | `app.py` | The Streamlit page |
 | `tests/` | Tests for every calculation: schema, API paging, comparison, score, backtest, futures curve |
 
