@@ -14,17 +14,17 @@ ENV_FILE = Path(__file__).parent / ".env"
 PAGE_SIZE = 5000  # EIA's maximum rows per response
 
 
-def load_api_key():
-    """Read EIA_API_KEY from the .env file next to this script."""
+def load_api_key(name="EIA_API_KEY"):
+    """Read a key (EIA_API_KEY by default, or e.g. FRED_API_KEY) from the .env file next to this script."""
     if not ENV_FILE.exists():
-        raise RuntimeError(".env not found. Add a line EIA_API_KEY=your_key")
+        raise RuntimeError(f".env not found. Add a line {name}=your_key")
     for line in ENV_FILE.read_text().splitlines():
         line = line.strip()
-        if line.startswith("EIA_API_KEY="):
+        if line.startswith(f"{name}="):
             key = line.split("=", 1)[1].strip().strip('"').strip("'")
             if key:
                 return key
-    raise RuntimeError(".env has no EIA_API_KEY line")
+    raise RuntimeError(f".env has no {name} line")
 
 
 def get(route, params=None):

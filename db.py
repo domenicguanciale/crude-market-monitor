@@ -123,6 +123,15 @@ CREATE TABLE IF NOT EXISTS trader_positioning (
     spec_net_pct_oi   DOUBLE              -- calculated: spec_net / open_interest
 );
 
+-- Daily indicator: one value of one daily market or risk series on one day (items 6, 7, 10),
+-- e.g. 'OVX'. Which series may be published outside this machine is recorded in fred.INDICATORS.
+CREATE TABLE IF NOT EXISTS daily_indicator (
+    indicator   VARCHAR NOT NULL,
+    obs_date    DATE    NOT NULL,
+    value       DOUBLE  NOT NULL,
+    PRIMARY KEY (indicator, obs_date)
+);
+
 -- Market reading: one market on one day. Rows are added or updated, never deleted,
 -- so markets that close and drop off the platforms' lists keep their history here.
 CREATE TABLE IF NOT EXISTS market_reading (

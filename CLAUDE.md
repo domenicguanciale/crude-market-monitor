@@ -102,6 +102,12 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Large speculators = noncommercial. `spec_net` = long − short. `spec_net_pct_oi` = net / open interest.
 - Timing: `report_date` is the measurement day (usually Tuesday). `released` is the first Friday at least 2 days later. Timing tests must use `released`. `week_ending` is the EIA week holding the measurement day.
 
+## FRED and copyright (items 6, 7, 10)
+
+- FRED's terms prohibit scraping, so use the official FRED API with `FRED_API_KEY` in `.env`, not the `fredgraph.csv` links.
+- Third-party series on FRED are for personal use only unless the owner grants permission. `fred.INDICATORS[...]["publishable"]` records this per series. OVX (CBOE), NASDAQ (Nasdaq) and the ICE BofA high-yield spread are not publishable. The 10-year Treasury yield is public domain. **The item 12 showcase may only publish series marked publishable**; the user decides the rest at item 12.
+- `daily_indicator` (indicator, obs_date, value) holds all daily indicator series.
+
 ## Pipeline
 
 `check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
