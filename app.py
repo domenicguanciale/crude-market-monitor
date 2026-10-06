@@ -27,6 +27,22 @@ INPUT_NAMES = {"crude": "Crude stocks", "distillate": "Distillate stocks", "util
 
 
 @st.cache_data(ttl=3600)
+def load_gauges():
+    """Daily risk, shipping and financial series (local use: some are not licensed for publishing)."""
+    con = duckdb.connect(str(db.DB_PATH), read_only=True)
+    daily = con.execute("SELECT indicator, obs_date, value FROM daily_indicator").df()
+    hormuz = con.execute("""SELECT transit_date AS obs_date, avg(tankers) OVER (ORDER BY transit_date
+                                ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS value
+                            FROM chokepoint_transit WHERE facility_id = 'strait-of-hormuz'""").df()
+    cot = con.execute("SELECT released AS obs_date, 100 * spec_net_pct_oi AS value FROM trader_positioning").df()
+    con.close()
+    frames = [daily, hormuz.assign(indicator="HORMUZ"), cot.assign(indicator="COT")]
+    out = pd.concat(frames, ignore_index=True)
+    out["obs_date"] = pd.to_datetime(out["obs_date"])
+    return out
+
+
+@st.cache_data(ttl=3600)
 def load():
     con = duckdb.connect(str(db.DB_PATH), read_only=True)
     weekly = con.execute("SELECT * FROM weekly_reading ORDER BY week_ending").df()
@@ -165,6 +181,32 @@ with c4:
 show(line_chart(view.assign(production=view["production"] / 1000), "week_ending", "production",
                 "US crude production (context only, not in the score)",
                 "Million barrels per day", "Production", ",.2f"))
+
+# ---------------------------------------------------------------- risk, shipping and financial gauges
+st.subheader("Risk, shipping and financial gauges")
+st.caption("Local research view. OVX (CBOE), the NASDAQ Composite (Nasdaq) and the ICE BofA high-yield spread are "
+           "licensed for personal use only and are not published in the public showcase. The high-yield spread "
+           "is available on FRED only from October 2023.")
+gauges = load_gauges()
+gview = gauges[gauges["obs_date"] >= start]
+GAUGES = [
+    ("HORMUZ", "Hormuz tanker transits a day, 7-day average (IMF PortWatch)", "Ships a day", ",.1f"),
+    ("GPR", "Geopolitical Risk Index (Caldara and Iacoviello)", "1985-2019 = 100", ",.0f"),
+    ("OVX", "Oil volatility index, OVX (CBOE via FRED)", "Index", ",.1f"),
+    ("COT", "Large speculators' net position in WTI, share of open interest (CFTC)", "Percent", ",.1f"),
+    ("UST10Y", "10-year Treasury yield (Federal Reserve via FRED)", "Percent", ",.2f"),
+    ("HY_SPREAD", "ICE BofA US high-yield spread (via FRED)", "Percentage points", ",.2f"),
+    ("NASDAQ", "NASDAQ Composite (via FRED)", "Index", ",.0f"),
+]
+for i in range(0, len(GAUGES), 2):
+    cols = st.columns(2)
+    for col, (key, title, unit, fmt) in zip(cols, GAUGES[i:i + 2]):
+        with col:
+            series = gview[gview["indicator"] == key].sort_values("obs_date")
+            if series.empty:
+                st.info(f"No data yet for {title}. Run the matching loader script.")
+            else:
+                show(line_chart(series, "obs_date", "value", title, unit, key, fmt))
 
 # ---------------------------------------------------------------- table view
 with st.expander("Table view of the weekly data"):

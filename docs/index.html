@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crude Market Monitor</title>
+<meta name="description" content="A research monitor of crude oil market tightness and the 2026 Strait of Hormuz disruption: physical inventories, prices, shipping, and risk, replayed on one time axis.">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.12);
+    --neutral-1: #898781; --neutral-2: #c3c2b7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --accent: #3987e5; --accent-soft: rgba(57,135,229,0.18);
+      --neutral-1: #898781; --neutral-2: #4a4945;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main, header, footer { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 32px; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.25rem; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--ink-2); max-width: 760px; }
+  .note { color: var(--muted); font-size: 0.9rem; }
+  .pill { display: inline-block; font-size: 0.8rem; padding: 2px 10px; border-radius: 999px;
+          border: 1px solid var(--border); color: var(--ink-2); margin: 4px 6px 0 0; }
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            padding: 20px; margin: 20px 0; }
+  .headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .stat .label { color: var(--ink-2); font-size: 0.9rem; }
+  .stat .value { font-size: 2rem; font-weight: 650; line-height: 1.2; }
+  .stat .value .tag { font-size: 1rem; font-weight: 500; color: var(--ink-2); }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0 4px; }
+  button { font: inherit; font-size: 0.95rem; color: var(--ink); background: var(--surface);
+           border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; cursor: pointer; min-height: 36px; }
+  button:hover { background: var(--accent-soft); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  input[type=range] { flex: 1 1 220px; accent-color: var(--accent); min-height: 36px; }
+  #playDate { font-variant-numeric: tabular-nums; min-width: 110px; color: var(--ink-2); }
+  .replay { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .replay { grid-template-columns: 1fr; } }
+  #charts { width: 100%; min-height: 640px; }
+  #map { width: 100%; height: 300px; }
+  .card { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px;
+          padding: 12px 14px; margin-top: 12px; }
+  .card h3 { font-size: 1rem; margin: 0 0 4px; }
+  .card .meta { color: var(--ink-2); font-size: 0.9rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .empty { color: var(--ink-2); border: 1px dashed var(--border); border-radius: 8px; padding: 12px 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink-2); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  ul { margin: 0 0 12px; padding-left: 20px; }
+  a { color: var(--accent); }
+  footer { padding-bottom: 40px; color: var(--muted); font-size: 0.85rem; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Crude Market Monitor</h1>
+  <p class="lede">When is the oil market tight, and how do prices react when supply is disrupted while it is tight? A student research project that tracks US inventories, global prices, shipping through the Strait of Hormuz, and geopolitical risk, and replays the 2026 disruption on one time axis.</p>
+  <span class="pill">Research and monitoring tool, not trading or betting advice</span>
+  <span class="pill" id="generated"></span>
+</header>
+
+<main>
+  <section aria-labelledby="h-now">
+    <h2 id="h-now">This week's reading</h2>
+    <div class="headline" id="headline"></div>
+    <p class="note" style="margin-top:12px">The score compares US crude stocks, distillate stocks and refinery utilization with the same week in the prior five years (2020 left out). It uses US data only, which is why the Brent minus WTI gap sits beside it: a wide gap means the world is short while the US is comparatively well supplied.</p>
+  </section>
+
+  <section aria-labelledby="h-replay">
+    <h2 id="h-replay">Replay: the 2026 disruption</h2>
+    <p class="note">Shows what moved together, not what caused what. Press play, or drag the slider.</p>
+    <div class="controls">
+      <button class="primary" id="play" aria-label="Play">Play</button>
+      <input type="range" id="scrub" min="0" value="0" aria-label="Replay date">
+      <span id="playDate"></span>
+      <button id="back" hidden>Back to the replay</button>
+    </div>
+    <div class="replay">
+      <div><div id="charts" role="img" aria-label="Stacked charts of Brent and WTI prices, the Brent minus WTI spread, the 10-year Treasury yield, Hormuz tanker transits, and the Geopolitical Risk Index"></div></div>
+      <div>
+        <div id="map" role="img" aria-label="Map of oil chokepoints and hand-checked events"></div>
+        <div id="card"></div>
+      </div>
+    </div>
+    <h3 style="font-size:1rem;margin:16px 0 8px">Events</h3>
+    <div id="events"></div>
+    <p class="note" id="omitted" style="margin-top:12px"></p>
+  </section>
+
+  <section aria-labelledby="h-toggle">
+    <h2 id="h-toggle">How one choice changes the score</h2>
+    <p class="note">The five-year comparison can keep 2020, when the pandemic swelled stocks and idled refineries, or leave it out. Leaving it out is the default here, decided before the backtest was run.</p>
+    <div class="controls" role="group" aria-label="Five-year range">
+      <button id="t-without" aria-pressed="true">2020 left out (default)</button>
+      <button id="t-with" aria-pressed="false">2020 kept (EIA-style range)</button>
+    </div>
+    <div id="toggleChart" style="width:100%;height:300px"></div>
+    <p id="toggleText"></p>
+  </section>
+
+  <section aria-labelledby="h-backtest">
+    <h2 id="h-backtest">Does a tight week predict prices? No.</h2>
+    <p>Each score is dated to the Wednesday it was published, then compared with the price change over the next four weeks (2010 to 2026). After tight weeks, prices did no better than after an average week. The rises after loose weeks come mostly from a few recoveries, above all 2020. The score describes the physical market; it is not a forecast.</p>
+    <div class="scroll"><table id="backtest"></table></div>
+  </section>
+
+  <section aria-labelledby="h-method">
+    <h2 id="h-method">Method and limits</h2>
+    <ul>
+      <li><strong>Score:</strong> each input's position in its five-year range for the same week (0 at the low, 1 at the high). Stocks score +1 below 0.25 and −1 above 0.75; utilization the other way round. Tight at +2 or more, loose at −2 or less.</li>
+      <li><strong>Price is not an input</strong>, so "tight markets have high prices" is never true by construction.</li>
+      <li><strong>US data only.</strong> The score measures US conditions; the spread and shipping data are the global view.</li>
+      <li><strong>Events</strong> appear only after they have been checked by hand against their sources. The 2026 war is treated as one episode with overlapping sub-events.</li>
+      <li><strong>Shipping counts</strong> come from AIS signals; ships that switch transponders off are missed.</li>
+      <li>Weekly figures are estimates and are sometimes revised. Nothing here forecasts disruptions or prices.</li>
+    </ul>
+    <p>Code, data sources, tests and the full write-up: <a id="repo" href="#">the GitHub repository</a>.</p>
+  </section>
+</main>
+
+<footer>
+  <p>Data: U.S. Energy Information Administration (prices, inventories); Board of Governors of the Federal Reserve System via FRED, Federal Reserve Bank of St. Louis (10-year yield); IMF PortWatch (chokepoint transits); Caldara and Iacoviello, Geopolitical Risk Index, matteoiacoviello.com/gpr.htm (CC BY). Events cite their own sources. Charts drawn with Plotly.</p>
+  <p>A student project. Not investment, trading or betting advice.</p>
+</footer>
+
+<script>
+(async function () {
+  const D = await (await fetch("data/showcase.json")).json();
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmtDate = (s) => new Date(s + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const PANELS = [
+    { keys: ["brent", "wti"], title: "Brent and WTI, $/bbl" },
+    { keys: ["spread"], title: "Brent minus WTI, $/bbl" },
+    { keys: ["ust10y"], title: "10-year Treasury yield, %" },
+    { keys: ["hormuz"], title: "Hormuz tanker transits a day, 7-day average" },
+    { keys: ["gpr"], title: "Geopolitical Risk Index, 7-day average" },
+  ];
+  const REBASE = { brent: "index", wti: "index", hormuz: "index", gpr: "index", spread: "change", ust10y: "change" };
+
+  // ---------- static text
+  $("generated").textContent = "Data as of " + fmtDate(D.generated);
+  $("repo").href = D.repo;
+  $("omitted").textContent = D.omitted;
+  const h = D.headline;
+  $("headline").innerHTML = `
+    <div class="stat"><div class="label">US tightness score, week ending ${fmtDate(h.week_ending)}</div>
+      <div class="value">${h.score > 0 ? "+" : ""}${h.score} <span class="tag">${h.label}</span></div></div>
+    <div class="stat"><div class="label">Brent minus WTI, weekly average</div>
+      <div class="value">$${h.spread.toFixed(2)} <span class="tag">per barrel</span></div></div>
+    <div class="stat"><div class="label">Position in five-year range</div>
+      <div class="value" style="font-size:1.1rem;font-weight:500;line-height:1.5">Crude ${h.crude_position.toFixed(2)} · Distillate ${h.distillate_position.toFixed(2)} · Utilization ${h.utilization_position.toFixed(2)}</div></div>`;
+
+  // ---------- replay timeline: every calendar day from the replay start to the last data point
+  const last = Object.values(D.series).map(s => s[s.length - 1][0]).sort().pop();
+  const days = [];
+  for (let d = new Date(D.replay_start + "T00:00:00Z"); d.toISOString().slice(0, 10) <= last; d.setUTCDate(d.getUTCDate() + 1))
+    days.push(d.toISOString().slice(0, 10));
+  const scrub = $("scrub");
+  scrub.max = days.length - 1;
+  scrub.value = days.length - 1;
+  const tradingDays = D.series.brent.map(p => p[0]);
+
+  function baseLayout(height) {
+    const gap = 0.06, n = PANELS.length, h = (1 - gap * (n - 1)) / n;
+    const layout = {
+      height, margin: { l: 48, r: 12, t: 22, b: 30 }, showlegend: false,
+      paper_bgcolor: css("--surface"), plot_bgcolor: css("--surface"),
+      font: { family: "system-ui, -apple-system, Segoe UI, sans-serif", color: css("--ink-2"), size: 12 },
+      hovermode: "x unified", hoverlabel: { bgcolor: css("--surface"), bordercolor: css("--border"), font: { color: css("--ink") } },
+      xaxis: { type: "date", showgrid: false, linecolor: css("--axis"), tickfont: { color: css("--muted") }, anchor: "y" + n },
+      annotations: [], shapes: [],
+    };
+    PANELS.forEach((p, i) => {
+      const top = 1 - i * (h + gap), name = i === 0 ? "yaxis" : "yaxis" + (i + 1);
+      layout[name] = { domain: [top - h, top], gridcolor: css("--grid"), zeroline: false,
+                       tickfont: { color: css("--muted"), size: 11 }, nticks: 4 };
+      layout.annotations.push({ text: p.title, xref: "paper", yref: "paper", x: 0, y: top, xanchor: "left", yanchor: "bottom", yshift: 2,
+                                showarrow: false, font: { size: 12, color: css("--ink-2") } });
+    });
+    return layout;
+  }
+
+  function traceFor(key, xs, ys, panel) {
+    const accent = css("--accent"), neutral = css("--neutral-1");
+    return { x: xs, y: ys, type: "scatter", mode: "lines", name: D.series_meta[key].label,
+             yaxis: panel === 0 ? "y" : "y" + (panel + 1), xaxis: "x",
+             line: { width: 2, color: key === "wti" ? neutral : accent },
+             hovertemplate: `${D.series_meta[key].label}: %{y:,.2f}<extra></extra>` };
+  }
+
+  // Fixed y ranges for the replay, from the whole replay period, so the axes do not jump as it plays
+  const replayRanges = PANELS.map(p => {
+    const vals = p.keys.flatMap(k => D.series[k].filter(q => q[0] >= D.replay_start).map(q => q[1]));
+    const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.06 || 1;
+    return [lo - pad, hi + pad];
+  });
+
+  let mode = "replay";
+  function eventsUpTo(day) { return D.events.filter(e => e.date <= day); }
+
+  function renderReplay(idx) {
+    const day = days[idx];
+    $("playDate").textContent = fmtDate(day);
+    const traces = [];
+    PANELS.forEach((p, i) => p.keys.forEach(k => {
+      const pts = D.series[k].filter(pt => pt[0] >= D.replay_start && pt[0] <= day);
+      traces.push(traceFor(k, pts.map(q => q[0]), pts.map(q => q[1]), i));
+    }));
+    const layout = baseLayout(window.innerWidth < 600 ? 600 : 660);
+    layout.xaxis.range = [D.replay_start, last];
+    replayRanges.forEach((r, i) => { layout[i === 0 ? "yaxis" : "yaxis" + (i + 1)].range = r; });
+    layout.shapes.push({ type: "line", xref: "x", yref: "paper", x0: day, x1: day, y0: 0, y1: 1,
+                         line: { color: css("--ink-2"), width: 1 } });
+    eventsUpTo(day).forEach(e => layout.shapes.push({ type: "line", xref: "x", yref: "paper", x0: e.date, x1: e.date,
+                                                        y0: 0, y1: 1, line: { color: css("--accent"), width: 1.5 } }));
+    Plotly.react("charts", traces, layout, { displayModeBar: false, responsive: true });
+    const reached = eventsUpTo(day);
+    showCard(reached[reached.length - 1]);
+    renderMap(reached);
+  }
+
+  function rebased(key, window, dayZero) {
+    const pts = D.series[key].filter(p => p[0] >= window[0] && p[0] <= window[1]);
+    const base = (D.series[key].filter(p => p[0] <= dayZero).pop() || pts[0] || [null, null])[1];
+    return pts.map(p => [p[0], REBASE[key] === "index" ? 100 * p[1] / base : p[1] - base]);
+  }
+
+  function renderEventView(e) {
+    mode = "event";
+    $("back").hidden = false;
+    const z = e.day_zero || e.date;
+    const i0 = tradingDays.findIndex(d => d >= z);
+    const window = [tradingDays[Math.max(0, i0 - 5)], tradingDays[Math.min(tradingDays.length - 1, i0 + 20)]];
+    $("playDate").textContent = `${e.name}: 5 trading days before to 20 after`;
+    const traces = [];
+    PANELS.forEach((p, i) => p.keys.forEach(k => {
+      const pts = rebased(k, window, z);
+      const t = traceFor(k, pts.map(q => q[0]), pts.map(q => q[1]), i);
+      t.hovertemplate = `${D.series_meta[k].label}: %{y:,.2f}${REBASE[k] === "index" ? " (day zero = 100)" : " change from day zero"}<extra></extra>`;
+      traces.push(t);
+    }));
+    const layout = baseLayout(window.innerWidth < 600 ? 600 : 660);
+    layout.annotations.forEach((a, i) => { a.text = PANELS[i].title.split(",")[0] +
+      (PANELS[i].keys.every(k => REBASE[k] === "index") ? ", day zero = 100" : ", change from day zero"); });
+    layout.xaxis.range = window;
+    layout.shapes.push({ type: "line", xref: "x", yref: "paper", x0: z, x1: z, y0: 0, y1: 1, line: { color: css("--accent"), width: 1.5 } });
+    Plotly.react("charts", traces, layout, { displayModeBar: false, responsive: true });
+    showCard(e);
+    renderMap([e]);
+  }
+
+  function showCard(e) {
+    if (!e) { $("card").innerHTML = ""; return; }
+    const bpd = e.bpd_offline ? `${(e.bpd_offline / 1e6).toFixed(1)} million barrels a day offline` : "No volume figure in the sources";
+    $("card").innerHTML = `<div class="card"><h3>${e.name}</h3>
+      <div class="meta">${fmtDate(e.date)} · ${e.place || ""}</div>
+      <div class="meta">${bpd}</div>
+      ${e.source_url ? `<div class="meta"><a href="${e.source_url}" rel="noopener" target="_blank">Source: ${e.source_name || "link"}</a></div>` : ""}</div>`;
+  }
+
+  function renderMap(reached) {
+    const cps = D.chokepoints;
+    const traces = [
+      { type: "scattergeo", lat: cps.map(c => c.lat), lon: cps.map(c => c.lon), text: cps.map(c => c.name),
+        mode: "markers", marker: { size: 7, color: css("--neutral-1") }, hovertemplate: "%{text}<extra></extra>" },
+      { type: "scattergeo", lat: reached.filter(e => e.lat != null).map(e => e.lat), lon: reached.filter(e => e.lat != null).map(e => e.lon),
+        text: reached.filter(e => e.lat != null).map(e => `${e.name} (${fmtDate(e.date)})`), mode: "markers",
+        marker: { size: 13, color: css("--accent"), line: { width: 2, color: css("--surface") } }, hovertemplate: "%{text}<extra></extra>" },
+    ];
+    const layout = { margin: { l: 0, r: 0, t: 0, b: 0 }, paper_bgcolor: css("--surface"), showlegend: false, height: 300,
+      geo: { projection: { type: "natural earth" }, lonaxis: { range: [15, 110] }, lataxis: { range: [-40, 45] },
+             showland: true, landcolor: css("--grid"), showocean: true, oceancolor: css("--surface"),
+             showcountries: true, countrycolor: css("--axis"), coastlinecolor: css("--axis"), bgcolor: css("--surface"),
+             showframe: false } };
+    Plotly.react("map", traces, layout, { displayModeBar: false, responsive: true });
+  }
+
+  function renderEventList() {
+    if (!D.events.length) {
+      $("events").innerHTML = `<div class="empty">No events are shown yet. ${D.unchecked_events} drafted events, including the 2026 Iran war timeline, are waiting to be checked by hand against their sources. Each appears here, on the charts and on the map once it has been checked.</div>`;
+      return;
+    }
+    $("events").innerHTML = `<div class="chips">${D.events.map((e, i) =>
+      `<button data-i="${i}">${fmtDate(e.date)}: ${e.name}</button>`).join("")}</div>
+      <p class="note" style="margin-top:8px">Click an event to see every chart from 5 trading days before to 20 after, rescaled so moves compare across markets.</p>`;
+    $("events").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { stop(); renderEventView(D.events[+b.dataset.i]); }));
+  }
+
+  // ---------- play controls
+  let timer = null;
+  function stop() { clearInterval(timer); timer = null; $("play").textContent = "Play"; $("play").setAttribute("aria-label", "Play"); }
+  $("play").addEventListener("click", () => {
+    if (timer) return stop();
+    if (mode === "event") backToReplay();
+    if (+scrub.value >= days.length - 1) scrub.value = 0;
+    $("play").textContent = "Pause"; $("play").setAttribute("aria-label", "Pause");
+    timer = setInterval(() => {
+      if (+scrub.value >= days.length - 1) return stop();
+      scrub.value = +scrub.value + 1; renderReplay(+scrub.value);
+    }, 90);
+  });
+  scrub.addEventListener("input", () => { if (mode === "event") backToReplay(); renderReplay(+scrub.value); });
+  function backToReplay() { mode = "replay"; $("back").hidden = true; renderReplay(+scrub.value); }
+  $("back").addEventListener("click", backToReplay);
+
+  // ---------- score toggle
+  let toggle = "without_2020";
+  function renderToggle() {
+    const t = D.score_toggle[toggle], years = Object.keys(t);
+    const bar = (k, color, name) => ({ type: "bar", x: years, y: years.map(y => t[y][k]), name, marker: { color },
+                                       hovertemplate: `%{x}: %{y} ${name.toLowerCase()} weeks<extra></extra>` });
+    Plotly.react("toggleChart", [bar("tight", css("--accent"), "Tight"), bar("normal", css("--neutral-2"), "Normal"),
+                                 bar("loose", css("--neutral-1"), "Loose")],
+      { barmode: "stack", bargap: 0.25, height: 300, margin: { l: 40, r: 10, t: 10, b: 30 },
+        paper_bgcolor: css("--surface"), plot_bgcolor: css("--surface"),
+        font: { family: "system-ui, -apple-system, Segoe UI, sans-serif", color: css("--ink-2"), size: 12 },
+        legend: { orientation: "h", y: 1.12, x: 0 }, yaxis: { gridcolor: css("--grid"), title: { text: "weeks" } },
+        xaxis: { type: "category" } }, { displayModeBar: false, responsive: true });
+    const a = D.score_toggle.without_2020, b = D.score_toggle.with_2020;
+    $("toggleText").textContent = `Tight weeks in 2023: ${a["2023"].tight} with 2020 left out, ${b["2023"].tight} with it kept. ` +
+      `In 2024: ${a["2024"].tight} against ${b["2024"].tight}. 2022 is tight either way (${a["2022"].tight} and ${b["2022"].tight} weeks).`;
+    $("t-without").setAttribute("aria-pressed", toggle === "without_2020");
+    $("t-with").setAttribute("aria-pressed", toggle === "with_2020");
+  }
+  $("t-without").addEventListener("click", () => { toggle = "without_2020"; renderToggle(); });
+  $("t-with").addEventListener("click", () => { toggle = "with_2020"; renderToggle(); });
+
+  // ---------- backtest table
+  const pct = (v) => (v >= 0 ? "+" : "") + (100 * v).toFixed(2) + "%";
+  const groups = [["tight", "After tight weeks"], ["all", "After all weeks"], ["loose", "After loose weeks"]];
+  $("backtest").innerHTML = `<thead><tr><th>Four weeks after release</th><th>WTI average</th><th>WTI share of rises</th>
+      <th>Brent average</th><th>Brent share of rises</th><th>Weeks</th></tr></thead><tbody>` +
+    groups.map(([g, label]) => `<tr><td>${label}</td><td>${pct(D.backtest.WTI[g].average)}</td>
+      <td>${Math.round(100 * D.backtest.WTI[g].hit_rate)}%</td><td>${pct(D.backtest.Brent[g].average)}</td>
+      <td>${Math.round(100 * D.backtest.Brent[g].hit_rate)}%</td><td>${D.backtest.WTI[g].count}</td></tr>`).join("") + "</tbody>";
+
+  function renderAll() {
+    renderEventList(); renderToggle();
+    if (mode === "replay") renderReplay(+scrub.value);
+  }
+  renderAll();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+})();
+</script>
+</body>
+</html>

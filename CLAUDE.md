@@ -129,14 +129,20 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `hand_checked` in both CSVs: `correct` or `corrected` counts as checked; `could not confirm` or blank does not. Only the user fills it. `events.py` loads both CSVs, replacing E and W rows but never R (news reader) rows. It deletes sources before events in separate statements because of DuckDB's foreign-key limits.
 - Downstream code must filter `WHERE hand_checked`. As of Oct 5, 2026: 0 of 29 checked.
 
+## Showcase (expansion item 12)
+
+- `docs/index.html` is static and reads `docs/data/showcase.json` from `export_showcase.py`; Plotly is loaded from jsDelivr. It covers the replay (playhead, event markers, cards, map), the event zoom (5 trading days before to 20 after, index 100 or change from day zero), the 2020 toggle, the backtest table, and method and limits.
+- The export refuses unpublishable series (tested). NASDAQ, HY_SPREAD, OVX and prediction market data never leave the machine. Only `hand_checked` events are exported.
+- The user decided to proceed on all remaining items without a layout review (Oct 5, 2026). NASDAQ and the HY spread were replaced on the page by publishable series because of licensing.
+
 ## Pipeline
 
-`check_routes.py` (confirm routes) → `fetch.py` (EIA to DuckDB) → `calculate.py` (`seasonal.py`, `score.py`) → `app.py` (Streamlit). Tests: `.venv/bin/python -m unittest discover -s tests -t .`
+`update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`
 
 ## Open items
 
-- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending), item 9 (chokepoints and SPR), item 10 (NASDAQ, 10y, HY spread; monday_summary.py; PROJECT_BRIEF version 2 rewritten), item 11 (war timeline W01-W14, events.py).
-- Next: 12 interactive showcase (show plan and layout first).
+- Done: item 1 (drop-2020 default and backtest), item 2 (futures curve, history only), item 3 (prediction markets), item 4 (unusual activity; event comparison waits for hand-checked events), item 5 (CFTC positioning), item 6 (OVX via the FRED API), item 7 (daily GPR index), item 8 (AI news reader, no-key session path; demo staged row 1, Abqaiq 2019, left pending), item 9 (chokepoints and SPR), item 10 (NASDAQ, 10y, HY spread; monday_summary.py; PROJECT_BRIEF version 2 rewritten), item 11 (war timeline W01-W14, events.py), item 12 (docs/ showcase, export_showcase.py).
+- Next: the user hand-checks events (fill hand_checked, run events.py, then export_showcase.py); after that, the version 2 event study. The user must enable GitHub Pages (Settings > Pages > Deploy from branch: main, /docs).
 - Item 9: the global side. Tanker transits through the Strait of Hormuz and other chokepoints, if a free public source exists, plus the US strategic petroleum reserve level.
 - Item 10: three daily outcome series for the event study (a NASDAQ index, the 10-year Treasury yield, a high-yield corporate bond spread), then a script that writes a short Monday summary of all gauges.
 - After item 10: update PROJECT_BRIEF.md so version 2 is one event study with two questions: how oil prices reacted to each disruption, and how tech funding costs reacted. Drop the scenario calculator and the network graph. Keep the map, because the item 12 showcase uses it.
