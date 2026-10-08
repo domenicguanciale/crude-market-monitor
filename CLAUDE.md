@@ -142,6 +142,13 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `Crude_Market_Monitor_3D.html` (single file, data inlined) is git-ignored because no script regenerates it.
 - The user's World Oil Simulation prompt (version 3D-2, milestones M0 to M10) is the next phase. M0 is the audit and plan; no new code until the user approves the plan.
 
+## Subagents and sources (M0.5, Oct 7, 2026)
+
+- `.claude/agents/`: explainer, source-checker, data-auditor, visual-qa, neutrality-reviewer. None has Edit or Write tools (a test checks this). They check and gather; the user and the main session make design decisions. The source-checker suggests a status, but only the user fills `hand_checked`.
+- `docs/SOURCES.md` lists every source with its terms, attribution and publishable flag. Add a row before any new source reaches a public file. UN Comtrade is local only (UN copyright, internal use). JODI is local until its terms are confirmed.
+- Size budget for the public first-load data: about 1.5 MB compressed (prompt version 3D-2, section 8).
+- Approved plan (Oct 7): M0.5 agents and SOURCES; M1 dollar index, retail fuel and CFTC disaggregated; M2 spike catalog; M3 spike explanations and hand-check; M4 trade flows; M5 shared state and Playwright; M6 price and volatility terrain; M7 2D dashboard; M8 Hormuz upgrade, compare and tours; M9 scenario explorer (history only, kept, built last); M10 QA and publish. Stop after each milestone.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`
