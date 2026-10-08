@@ -1,5 +1,6 @@
 // Reading docs/data/viz3d.js (window.VIZ3D, written by export_3d.py). Format 2: every daily series is
 // {s: index of its first day, v: values}. Day 0 is D.start. A day outside a series has no value (null).
+// docs/data/flows.json is separate and is fetched only when the world flows view opens (see main.js).
 
 export function makeData(D) {
   const N = D.days;
@@ -22,11 +23,23 @@ export function makeData(D) {
   { let p = -1; for (let i = 0; i < N; i++) { const iso = isoOf(i); while (p + 1 < weeks.length && weeks[p + 1].d <= iso) p++; weekIdxAt[i] = p; } }
   const choke = D.chokepoints;
   const hormuz = choke.find((c) => c.id === 'strait-of-hormuz');
+  // Realized volatility: daily values exist on trading days only, so a rank counts trading days, as spikes.py does.
+  const M = D.market || { rv20: {}, weekly: {} };
+  const sortedVol = {};
+  for (const [b, ser] of Object.entries(M.rv20)) sortedVol[b] = Float64Array.from(values(ser)).sort();
+  // Share of all trading days with a lower value (spikes.percentile_rank).
+  const volRank = (bench, v) => {
+    const a = sortedVol[bench]; if (!a || v == null) return null;
+    let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; }
+    return lo / a.length;
+  };
   return { D, N, T0, isoOf, dayOf, nice, val, lastVal, values, weeks, weekIdxAt, choke, hormuz,
+           market: M, spikes: D.spikes || [], volRank, firstYear: Number(D.start.slice(0, 4)),
            portwatchStart: dayOf(D.portwatch_start || '2019-01-01') };
 }
 
 export const label = (s) => (s >= 2 ? 'tight' : s <= -2 ? 'loose' : 'normal');
 export const signed = (s) => (s > 0 ? '+' + s : s < 0 ? '−' + Math.abs(s) : '0');
 export const fmt = (v, d = 2) => (v == null ? 'n/a' : v.toFixed(d));
+export const pct = (v, d = 0) => (v == null ? 'n/a' : (100 * v).toFixed(d) + '%');
 export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));

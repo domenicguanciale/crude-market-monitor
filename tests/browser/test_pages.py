@@ -3,8 +3,9 @@
 What they check, in plain language:
 - Both pages load with no console errors, in light and dark mode, at desktop width and at phone width (390 px),
   and never scroll sideways.
-- The 3D page draws real frames (the canvas is not blank) in each of the three views.
-- Moving to a fixed date shows the same Brent, WTI and tightness numbers that are stored in the database.
+- The 3D page draws real frames (the canvas is not blank) in each of the five views, and hovering one item in
+  each view shows a tooltip with its source. The world flows data loads only when that view opens.
+- Moving to a fixed date shows the same Brent, WTI, tightness and volatility numbers that are stored in the database.
 - Dates before a series starts say "n/a" instead of inventing a value.
 - The shared state module (docs/js/state.js) clamps dates, round-trips the URL hash and plays back deterministically.
 
@@ -101,20 +102,61 @@ class PageTests(unittest.TestCase):
                         self.shot(page, "%s_%s_%s" % (path.split(".")[0], size, scheme))
 
     # ---------- 3D page draws something in every view ----------
+    BUTTON = {"price": "#vPrice", "sky": "#vSky", "globe": "#vGlobe", "hz": "#vHz", "flows": "#vFlows"}
+
+    def settle(self, page):
+        """Wait until the flows file (if needed) has loaded and two more frames have been drawn."""
+        page.wait_for_function("window.__viz.state.get().view !== 'flows' || window.__viz.scenes.flows.loaded", timeout=15000)
+        n = page.evaluate("window.__viz.frames()")
+        page.evaluate("window.__viz.redraw()")                 # the page draws only on change, so ask for one frame
+        page.wait_for_function("window.__viz.frames() > %d" % n, timeout=10000)
+
     def test_each_view_draws_a_non_blank_canvas(self):
         from PIL import Image
-        page, errors = self.open_3d("#v=hz&d=2026-04-17")
+        page, errors = self.open_3d("#v=globe&d=2026-04-17")
         self.assertTrue(page.evaluate("window.__viz.webgl"), "WebGL renderer did not start")
-        for view in ("globe", "sky", "hz"):
+        self.assertFalse(page.evaluate("window.__viz.scenes.flows.loaded"), "flows.json should load only when its view opens")
+        for view in ("price", "sky", "hz", "flows", "globe"):
             with self.subTest(view=view):
-                before = page.evaluate("window.__viz.frames()")
-                page.click("#v" + {"globe": "Globe", "sky": "Sky", "hz": "Hz"}[view])
-                page.wait_for_function("window.__viz.frames() > %d" % before)
+                page.click(self.BUTTON[view])
+                self.settle(page)
                 img = Image.open(io.BytesIO(page.locator("#gl").screenshot())).convert("RGB").resize((160, 100))
                 px = img.tobytes()
                 colours = len({px[i:i + 3] for i in range(0, len(px), 3)})
                 self.assertGreater(colours, 40, "canvas looks blank in %s view (%d colours)" % (view, colours))
                 self.assertIn("v=" + view, page.evaluate("location.hash"))
+        self.assertIn("Who sold", page.evaluate("document.getElementById('flowLists').innerText"))
+        self.assertEqual(errors, [])
+
+    def test_tooltip_in_each_view(self):
+        expect = {"price": "Rule:", "sky": "Week ending", "globe": "Strait of Hormuz", "hz": "Strait of Hormuz", "flows": "Saudi Arabia"}
+        source = {"price": "spikes.py", "sky": "EIA", "globe": "PortWatch", "hz": "PortWatch", "flows": "EIA"}
+        page, errors = self.open_3d("#v=price&d=2026-04-17")
+        for view, word in expect.items():
+            with self.subTest(view=view):
+                page.evaluate("window.__viz.state.set({view: '%s'})" % view)
+                self.settle(page)
+                box = page.locator("#gl").bounding_box()       # the option row above the canvas changes height per view
+                p = page.evaluate("window.__viz.probe()")
+                self.assertIsNotNone(p, "nothing to hover in " + view)
+                self.assertTrue(0 <= p["x"] <= box["width"] and 0 <= p["y"] <= box["height"], "probe off screen in %s: %s" % (view, p))
+                page.mouse.move(box["x"] + p["x"], box["y"] + p["y"])
+                page.wait_for_selector("#tip", state="visible", timeout=5000)
+                tip = self.text(page, "#tip")
+                self.assertIn(word, tip)
+                self.assertIn(source[view], tip)
+                page.mouse.move(box["x"] + 5, box["y"] + 5)
+        self.assertEqual(errors, [])
+
+    def test_clicking_a_spike_pin_jumps_to_its_date(self):
+        page, errors = self.open_3d("#v=price&d=2026-02-28")
+        self.settle(page)
+        pin = {"id": "WTI-SURGE-2026-04-07", "d1": "2026-04-07"}     # front wall, near the opening date
+        p = page.evaluate("(() => { const v = window.__viz; v.camera.updateMatrixWorld(); const q = v.scenes.price.probe(v.state.get(), '%s'); if (!q) return null; q.project(v.camera); return {x: (q.x * 0.5 + 0.5) * document.getElementById('viewport').clientWidth, y: (-q.y * 0.5 + 0.5) * document.getElementById('viewport').clientHeight}; })()" % pin["id"])
+        self.assertIsNotNone(p)
+        box = page.locator("#gl").bounding_box()
+        page.mouse.click(box["x"] + p["x"], box["y"] + p["y"])
+        page.wait_for_function("location.hash.includes('d=%s')" % pin["d1"], timeout=5000)
         self.assertEqual(errors, [])
 
     # ---------- readouts match the database ----------
@@ -134,6 +176,12 @@ class PageTests(unittest.TestCase):
                 wk = con.execute("SELECT week_ending, tightness_score FROM weekly_reading WHERE week_ending <= ? "
                                  "AND tightness_score IS NOT NULL ORDER BY week_ending DESC LIMIT 1", [iso]).fetchone()
                 self.assertIn(wk[0].isoformat(), self.text(page, "#rWeekH"))
+                rv = con.execute("SELECT value FROM daily_indicator WHERE indicator = 'RV20_BRENT' AND obs_date <= ? "
+                                 "ORDER BY obs_date DESC LIMIT 1", [iso]).fetchone()[0]
+                rank = con.execute("SELECT avg(CASE WHEN value < ? THEN 1 ELSE 0 END) FROM daily_indicator "
+                                   "WHERE indicator = 'RV20_BRENT' AND value IS NOT NULL", [rv]).fetchone()[0]
+                self.assertEqual(self.text(page, "#rVol"), "%.0f%%" % (100 * rv))
+                self.assertLessEqual(abs(float(self.text(page, "#rVolRank").rstrip("%")) - 100 * rank), 1)
                 score = int(wk[1])
                 shown = re.match(r"[+\u2212-]?\d", self.text(page, "#rScore")).group(0)
                 self.assertEqual(int(shown.replace("\u2212", "-")), score)
@@ -152,6 +200,7 @@ class PageTests(unittest.TestCase):
     def test_opens_at_the_2026_disruption_and_plays(self):
         page, errors = self.open_3d()
         self.assertEqual(self.text(page, "#rDate"), "Feb 28, 2026")
+        self.assertEqual(page.evaluate("window.__viz.state.get().view"), "price")
         start = page.evaluate("window.__viz.state.get().day")
         page.click("#play")
         page.wait_for_function("window.__viz.state.get().day > %d" % start, timeout=10000)
@@ -159,7 +208,7 @@ class PageTests(unittest.TestCase):
         self.assertFalse(page.evaluate("window.__viz.state.get().playing"))
         page.click("#jStart")
         self.assertEqual(self.text(page, "#rDate"), "Jan 2, 1986")
-        self.assertEqual(page.evaluate("location.hash"), "#v=globe&d=1986-01-02")
+        self.assertEqual(page.evaluate("location.hash"), "#v=price&d=1986-01-02")
         self.assertEqual(errors, [])
 
     # ---------- the shared state module ----------
@@ -177,17 +226,23 @@ class PageTests(unittest.TestCase):
           st.set({ view: 'nonsense' }); const viewKept = st.get().view;
           const nothing = st.set({ day: 0 }).length;
           const hash = S.toHash({ view: 'hz', day: 400, keep2020: true }, isoOf);
+          const hashM = S.toHash({ view: 'sky', day: 400, measure: 'vol' }, isoOf);
+          const backM = S.fromHash(hashM + '&m2=x', dayOf, N);
+          st.set({ measure: 'nonsense' }); const measureKept = st.get().measure;
           const back = S.fromHash(hash, dayOf, N);
           const bad = S.fromHash('#v=moon&d=1999-99', dayOf, N);
           const run = () => { let s = { day: 0, speed: 35, playing: true }, c = 0;
             for (const dt of [0.016, 0.017, 0.016, 0.5, 0.033]) { const a = S.advance(s, dt, c, N); s = { ...s, day: a.day, playing: a.playing }; c = a.carry; }
             return s.day; };
           const end = S.advance({ day: N - 3, speed: 365, playing: true }, 1, 0, N);
-          return { clampedHigh, clampedLow, viewKept, nothing, seen, hash, back, bad, run1: run(), run2: run(), end };
+          return { clampedHigh, clampedLow, viewKept, nothing, seen, hash, back, bad, run1: run(), run2: run(), end, hashM, backM, measureKept };
         }""")
         self.assertEqual(r["clampedHigh"], 999)
         self.assertEqual(r["clampedLow"], 0)
-        self.assertEqual(r["viewKept"], "globe")
+        self.assertEqual(r["viewKept"], "price")
+        self.assertEqual(r["measureKept"], "score")
+        self.assertEqual(r["hashM"], "#v=sky&d=1987-02-06&m=vol")
+        self.assertEqual(r["backM"], {"day": 400, "view": "sky", "measure": "vol"})
         self.assertEqual(r["nothing"], 0)                 # setting the same value notifies nobody
         self.assertEqual(r["seen"], ["day", "day"])
         self.assertEqual(r["hash"], "#v=hz&d=1987-02-06&k=1")

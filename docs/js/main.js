@@ -1,12 +1,15 @@
-// The 3D page: one shared state (state.js) drives three views (scenes/), the readout and the timeline.
-// Static page: data comes from docs/data/viz3d.js (window.VIZ3D), written by export_3d.py.
+// The 3D page: one shared state (state.js) drives five views (scenes/), the readout and the timeline.
+// Static page: data comes from docs/data/viz3d.js (window.VIZ3D), written by export_3d.py. The world flows view
+// fetches docs/data/flows.json the first time it opens (lazy loading).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createState, toHash, fromHash, advance, SPEEDS } from './state.js';
-import { makeData, label, signed, fmt, clamp } from './data.js';
+import { makeData, label, signed, fmt, pct, clamp } from './data.js';
 import { createGlobe, shortName } from './scenes/globe.js';
 import { createSkyline } from './scenes/skyline.js';
 import { createHormuz } from './scenes/hormuz.js';
+import { createPrice } from './scenes/price.js';
+import { createFlows, REGIONS } from './scenes/flows.js';
 
 const $ = (s) => document.querySelector(s);
 const data = makeData(window.VIZ3D);
@@ -44,7 +47,7 @@ try {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 } catch (e) { $('#fallback').style.display = 'flex'; }
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(35, 1.6, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(35, 1.6, 0.05, 400);      // far enough to see the whole price history
 scene.add(new THREE.AmbientLight(0xffffff, 0.85));
 const sun = new THREE.DirectionalLight(0xffffff, 1.1); sun.position.set(3, 6, 4); scene.add(sun);
 const controls = renderer ? new OrbitControls(camera, canvas) : null;
@@ -58,39 +61,61 @@ function addLabel(text, pos, opts = {}) {
   const l = { el, pos, group: opts.group, globe: !!opts.globe }; labels.push(l); return l;
 }
 
-// ---------- the shared state and the three views ----------
-const initial = { day: DISRUPTION_START, ...fromHash(location.hash, dayOf, N) };
+// ---------- the shared state and the five views ----------
+// Default opening: the price terrain at the start of the 2026 disruption, with the whole history behind it.
+const initial = { day: DISRUPTION_START, view: 'price', ...fromHash(location.hash, dayOf, N) };
 const state = createState(initial, N);
 if (initial.keep2020) $('#in2020').checked = true;
+if (initial.measure) $('#measure').value = initial.measure;
 const ctx = { THREE, addLabel, THEME, data, reduceMotion };
-const scenes = { globe: createGlobe(ctx), sky: createSkyline(ctx), hz: createHormuz(ctx) };
+const scenes = { price: createPrice(ctx), globe: createGlobe(ctx), sky: createSkyline(ctx), hz: createHormuz(ctx), flows: createFlows(ctx) };
+const BTN = { price: 'vPrice', globe: 'vGlobe', sky: 'vSky', hz: 'vHz', flows: 'vFlows' };
+const OPTS = { price: 'optPrice', sky: 'optSky', flows: 'optFlows' };
 for (const s of Object.values(scenes)) { s.group.visible = false; scene.add(s.group); s.applyTheme(); }
 let dirty = true;
 
 function setCamera(view) {
   if (!controls) return;
-  const c = scenes[view].camera;
-  camera.position.copy(c.pos); controls.target.copy(c.target);
+  const sc = scenes[view], c = sc.camera;
+  const base = c.relative && sc.follow ? sc.follow(state.get()) : new THREE.Vector3();   // relative cameras sit around the date
+  camera.position.copy(c.pos).add(base); controls.target.copy(c.target).add(base);
   controls.enablePan = c.pan; controls.minDistance = c.min; controls.maxDistance = c.max; controls.maxPolarAngle = c.maxPolar;
   controls.update(); dirty = true;
 }
 
+const followAt = new THREE.Vector3(), _delta = new THREE.Vector3();
 function renderView(st, changed) {
   const sc = scenes[st.view];
+  if (sc.lazy && !sc.loaded && !sc.fetching) {
+    sc.fetching = true;
+    fetch(sc.lazy).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((j) => { sc.setData(j); sc.applyTheme(); renderView(state.get(), ['data']); dirty = true; })
+      .catch((e) => { sc.status.error = e.message; renderView(state.get(), ['data']); });
+  }
   if (changed.includes('view')) {
     for (const [k, s] of Object.entries(scenes)) s.group.visible = k === st.view;
-    for (const v of Object.keys(scenes)) $('#v' + { globe: 'Globe', sky: 'Sky', hz: 'Hz' }[v]).setAttribute('aria-pressed', v === st.view);
+    for (const v of Object.keys(scenes)) $('#' + BTN[v]).setAttribute('aria-pressed', v === st.view);
+    for (const [v, id] of Object.entries(OPTS)) $('#' + id).hidden = v !== st.view;
     $('#hzNote').hidden = st.view !== 'hz';
-    $('#optWrap').hidden = st.view !== 'sky';
+    $('#flowLists').hidden = st.view !== 'flows';
     $('#hint').textContent = sc.hint();
-    $('#legend').innerHTML = sc.legend();
     hideTip(); setCamera(st.view);
+    if (sc.follow) followAt.copy(sc.follow(st));
+  } else if (sc.follow && controls && changed.includes('day')) {
+    const at = sc.follow(st); _delta.subVectors(at, followAt); followAt.copy(at);   // the camera travels with the date
+    camera.position.add(_delta); controls.target.add(_delta);
   }
+  $('#in2020Wrap').hidden = st.measure !== 'score';
+  $('#benchWrap').hidden = st.measure === 'score';
   sc.update(st);
+  $('#legend').innerHTML = sc.legend(st);
+  $('#explainText').innerHTML = sc.explain(st);
   $('#caption').textContent = sc.caption(st);
   if (st.view === 'hz') $('#hzNote').innerHTML = sc.note(st);
+  if (st.view === 'flows') $('#flowLists').innerHTML = sc.lists();
   canvas.setAttribute('aria-label', sc.aria(st, nice));
 }
+const rerender = () => { renderView(state.get(), ['option']); dirty = true; };
 
 function renderReadout(st) {
   const i = st.day;
@@ -102,6 +127,9 @@ function renderReadout(st) {
   $('#rSpread').textContent = b != null && w != null ? fmt(b - w) : 'n/a';
   $('#rUst').textContent = u != null ? fmt(u) + '%' : 'n/a';
   $('#rGpr').textContent = g != null ? String(Math.round(g)) : 'n/a';
+  const rv = lastVal(data.market.rv20.brent, i, 7);
+  $('#rVol').textContent = pct(rv);
+  $('#rVolRank').textContent = pct(data.volRank('brent', rv));
   $('#rShip').innerHTML = choke.map((c) => {
     const v = lastVal(c.tankers7, i), pct = v == null ? null : Math.round(100 * v / c.baseline);
     return '<dt>' + shortName(c.id) + '</dt><dd>' + (v == null ? 'n/a' : v.toFixed(1)) +
@@ -128,8 +156,8 @@ function renderReadout(st) {
 // Every change to the state flows through here: the views never keep their own copy of the date.
 state.subscribe((st, changed) => {
   if (changed.includes('playing')) { $('#play').textContent = st.playing ? 'Pause' : 'Play'; $('#play').setAttribute('aria-label', st.playing ? 'Pause' : 'Play'); }
-  if (changed.some((k) => ['day', 'view', 'keep2020'].includes(k))) { renderReadout(st); renderView(st, changed); }
-  if (!st.playing && changed.some((k) => ['day', 'view', 'keep2020'].includes(k))) writeHash();
+  if (changed.some((k) => ['day', 'view', 'keep2020', 'measure'].includes(k))) { renderReadout(st); renderView(st, changed); }
+  if (!st.playing && changed.some((k) => ['day', 'view', 'keep2020', 'measure'].includes(k))) writeHash();
   dirty = true;
 });
 
@@ -179,9 +207,14 @@ $('#jDisruption').onclick = jump(DISRUPTION_START);
 $('#jLow').onclick = jump(lowDay);
 $('#jNow').onclick = jump(N - 1);
 $('#speed').onchange = (e) => state.set({ speed: SPEEDS[e.target.value] || SPEEDS.normal });
-$('#vGlobe').onclick = () => state.set({ view: 'globe' });
-$('#vSky').onclick = () => state.set({ view: 'sky' });
-$('#vHz').onclick = () => state.set({ view: 'hz' });
+for (const [v, id] of Object.entries(BTN)) $('#' + id).onclick = () => state.set({ view: v });
+$('#measure').onchange = (e) => state.set({ measure: e.target.value });
+$('#bench').onchange = (e) => { scenes.sky.setOption('bench', e.target.value); rerender(); };
+$('#pins').onchange = (e) => { scenes.price.setOption('pins', e.target.value); rerender(); };
+$('#region').innerHTML = REGIONS.map((r) => '<option>' + r + '</option>').join('');
+$('#region').onchange = (e) => { scenes.flows.setOption('region', e.target.value); rerender(); };
+$('#tierA').onchange = (e) => { scenes.flows.setOption('showA', e.target.checked); rerender(); };
+$('#tierB').onchange = (e) => { scenes.flows.setOption('showB', e.target.checked); rerender(); };
 $('#reset').onclick = () => setCamera(state.get().view);
 $('#in2020').onchange = (e) => state.set({ keep2020: e.target.checked });
 document.addEventListener('visibilitychange', () => { if (document.hidden) state.set({ playing: false }); });
@@ -208,7 +241,18 @@ function pick(e) {
 }
 canvas.addEventListener('pointermove', (e) => { if (e.buttons === 0) pick(e); else hideTip(); });
 canvas.addEventListener('pointerleave', hideTip);
-canvas.addEventListener('click', (e) => { if (e.pointerType === 'touch') pick(e); });
+// A click (not a drag) on something selectable, such as a spike pin, jumps the date there. A tap also shows its tooltip.
+let downAt = null;
+canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || !renderer) return;
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const sc = scenes[state.get().view], d = sc.select ? sc.select(ray) : null;
+  if (d != null) state.set({ playing: false, day: d });
+  if (e.pointerType === 'touch' || d != null) pick(e);
+});
 
 // ---------- loop: render only when something changed ----------
 function resize() {
@@ -248,4 +292,12 @@ function frame(now) {
 resize();
 { const st = state.get(); renderReadout(st); renderView(st, ['view']); }
 requestAnimationFrame(frame);
-window.__viz = { state, data, scenes, camera, THREE, webgl: !!renderer, frames: () => frames };   // handle for the browser tests and the console
+// Screen position (canvas pixels) of one pickable item in the current view, for the browser tests.
+function probe() {
+  const st = state.get(), p = scenes[st.view].probe ? scenes[st.view].probe(st) : null;
+  if (!p) return null;
+  camera.updateMatrixWorld();                              // matrices otherwise refresh only when a frame is drawn
+  const v = p.clone().project(camera);
+  return { x: (v.x * 0.5 + 0.5) * viewport.clientWidth, y: (-v.y * 0.5 + 0.5) * viewport.clientHeight };
+}
+window.__viz = { state, data, scenes, camera, THREE, webgl: !!renderer, frames: () => frames, probe, redraw: () => { dirty = true; } };   // handle for the browser tests and the console

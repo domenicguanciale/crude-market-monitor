@@ -75,10 +75,13 @@ export function createHormuz({ THREE, addLabel, THEME, data, reduceMotion }) {
     addLabel('<b>' + (FAC_SHORT[f.id] || f.name) + '</b>', new THREE.Vector3(g.position.x, 0.5, g.position.z), { group: 'hz' });
     return { f, hit };
   });
+  let gate = null, gateHit = null;
   const gateMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
   {
-    const gate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.32), gateMat);
+    gate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.32), gateMat);
     gate.rotation.y = Math.PI / 2; gate.position.set(px(56.4), 0.16, pz(26.58)); group.add(gate);
+    gateHit = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.55), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    gateHit.position.copy(gate.position); group.add(gateHit);
     addLabel('<b>Strait of Hormuz</b>', new THREE.Vector3(px(56.4), 0.4, pz(26.58)), { group: 'hz' });
     [['Persian Gulf', 28.7, 50.6], ['Gulf of Oman', 24.25, 58.3]].forEach(([t, la, lo]) => addLabel(t, new THREE.Vector3(px(lo), 0.02, pz(la)), { dim: true, group: 'hz' }));
     [['IRAN', 28.7, 54.0], ['SAUDI ARABIA', 25.9, 48.7], ['UAE', 24.2, 54.9], ['OMAN', 23.5, 57.4]].forEach(([t, la, lo]) => addLabel(t, new THREE.Vector3(px(lo), 0.06, pz(la)), { dim: true, group: 'hz' }));
@@ -105,12 +108,18 @@ export function createHormuz({ THREE, addLabel, THEME, data, reduceMotion }) {
       animate(reduceMotion ? 0 : performance.now() / 1000);
     },
     animate,
+    explain: () => '<p>A map of the Persian Gulf and the Strait of Hormuz with the real coastline (Natural Earth). Each moving ship stands for one tanker that passed through the strait per day, as a 7-day average counted by IMF PortWatch from satellite ship signals.</p>' +
+      '<p>The number of ships is measured. Where they sail, which lane they use and which way they go are drawn for display only, because the data has daily counts, not vessel tracks. Hover the strait for the count.</p>',
     pick(ray) {
-      const hit = ray.intersectObjects(facMarks.map((m) => m.hit), false)[0];
+      const hit = ray.intersectObjects(facMarks.map((m) => m.hit).concat(gateHit ? [gateHit] : []), false)[0];
       if (!hit) return null;
+      if (hit.object === gateHit) return '<b>Strait of Hormuz</b><br>' + (v == null ? 'No PortWatch data for this date (counts start January 1, 2019)'
+        : v.toFixed(1) + ' tankers a day (7-day average), ' + Math.round(100 * v / H.baseline) + '% of the 2019 to 2025 median of ' + H.baseline) +
+        '<br><span style="color:var(--ink-2)">Source: IMF PortWatch (measured). Ships on the map are placed for display.</span>';
       const f = hit.object.userData.fac;
       return '<b>' + f.name + '</b><br>' + f.type + (f.country ? ', ' + f.country : '') + '<br><span style="color:var(--ink-2)">From the project’s facility table. Location approximate.</span>';
     },
+    probe: () => gate.position.clone(),
     aria: (st, nice) => '3D map of the Persian Gulf and Strait of Hormuz on ' + nice(st.day) + ' with ' + n + ' ships drawn, one for each tanker transit a day',
   };
 }

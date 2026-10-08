@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crude Market Monitor in 3D</title>
-<meta name="description" content="Three linked 3D views of the crude oil market, driven by one time slider: tanker traffic through six shipping chokepoints on a globe, and thirty years of the weekly US tightness score as a skyline.">
+<meta name="description" content="Five linked 3D views of the crude oil market from 1986 to today, driven by one time slider: price walls with every rule-detected spike, a skyline of volatility, prices and US tightness, tanker traffic at six chokepoints, a Hormuz close-up, and measured crude flows by country.">
 <style>
   :root {
     color-scheme: light;
@@ -21,6 +21,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main, header, footer { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
@@ -42,7 +43,9 @@
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); min-width: 84px; }
   button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .seg { display: inline-flex; gap: 0; }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 0; max-width: 100%; }
+  select { max-width: 100%; }
+  .opt { flex-wrap: wrap; max-width: 100%; }
   .seg button:first-child { border-radius: 8px 0 0 8px; }
   .seg button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
   .opt { display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--ink-2); min-height: 40px; }
@@ -63,6 +66,16 @@
   #fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--ink-2); }
   .hznote { position: absolute; left: 10px; top: 8px; right: 10px; font-size: 0.85rem; line-height: 1.35; color: var(--ink); background: color-mix(in srgb, var(--bg) 82%, transparent); padding: 4px 8px; border-radius: 6px; pointer-events: none; width: fit-content; max-width: calc(100% - 20px); }
   @media (max-width: 600px) { .hznote { font-size: 0.78rem; } }
+  details.explain { margin: 10px 0 0; border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; }
+  details.explain summary { cursor: pointer; font-weight: 600; min-height: 32px; line-height: 32px; }
+  details.explain p { font-size: 0.92rem; color: var(--ink-2); margin: 6px 0; }
+  .flowlists { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+  @media (max-width: 760px) { .flowlists { grid-template-columns: 1fr; } }
+  .flowlists h3 { font-size: 0.9rem; margin: 0 0 6px; }
+  .flowlists table { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+  .flowlists th { text-align: left; font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--grid); padding: 3px 4px; }
+  .flowlists td { border-bottom: 1px solid var(--grid); padding: 3px 4px; }
+  .flowlists .n { text-align: right; }
   .hint { position: absolute; left: 10px; bottom: 8px; font-size: 0.78rem; color: var(--ink-2); pointer-events: none; }
 
   .readout { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; align-self: start; }
@@ -109,7 +122,7 @@
 <header>
   <p class="crumb"><a href="index.html">&larr; Crude Market Monitor</a></p>
   <h1>Crude Market Monitor in 3D</h1>
-  <p class="lede">Three views of the same research, on one time axis from 1986 to today. It opens at the start of the 2026 Strait of Hormuz disruption. The <b>globe</b> shows tanker traffic through six shipping chokepoints. The <b>skyline</b> shows thirty years of the weekly US tightness score. The <b>Hormuz close-up</b> puts ships on a map of the Gulf, one for each tanker transit per day. Drag to rotate, scroll to zoom, and press play or drag the slider to move through time.</p>
+  <p class="lede">Five views of the same research, on one time axis from 1986 to today. It opens at the start of the 2026 Strait of Hormuz disruption, with the whole price history behind it. The <b>price terrain</b> turns Brent and WTI into walls you can fly along, with a pin on every spike the rules found. The <b>skyline</b> compares every week since 1986 by volatility, price or the US tightness score. The <b>globe</b> shows tanker traffic through six shipping chokepoints, the <b>Hormuz close-up</b> puts one ship on the map for each tanker transit per day, and <b>world flows</b> shows measured crude production and US imports by country. Drag to rotate, scroll to zoom, and press play or drag the slider to move through time.</p>
   <span class="pill">Research tool, not trading advice</span>
   <span class="pill" id="generated"></span>
 </header>
@@ -119,12 +132,36 @@
     <h2 id="h-view" class="sr" style="position:absolute;left:-9999px">3D views</h2>
     <div class="row">
       <div class="seg" role="group" aria-label="Choose a view">
-        <button id="vGlobe" aria-pressed="true">Globe: shipping</button>
-        <button id="vSky" aria-pressed="false">Skyline: tightness</button>
+        <button id="vPrice" aria-pressed="true">Price terrain</button>
+        <button id="vSky" aria-pressed="false">Skyline</button>
+        <button id="vGlobe" aria-pressed="false">Globe: shipping</button>
         <button id="vHz" aria-pressed="false">Hormuz: ships</button>
+        <button id="vFlows" aria-pressed="false">World flows</button>
       </div>
-      <label class="opt" id="optWrap" hidden><input type="checkbox" id="in2020"> Keep 2020 in the five-year range</label>
       <button id="reset" title="Return the camera to its starting position">Reset view</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span id="optPrice" class="row" hidden>
+        <label class="opt">Spike pins
+          <select id="pins" aria-label="Which spike pins to show">
+            <option value="episodes" selected>Episodes</option><option value="all">All, with one-day moves</option><option value="none">None</option>
+          </select></label>
+      </span>
+      <span id="optSky" class="row" hidden>
+        <label class="opt">Measure
+          <select id="measure" aria-label="What the skyline shows">
+            <option value="score" selected>US tightness score</option><option value="vol">Volatility, 20-day</option><option value="price">Price level</option>
+          </select></label>
+        <label class="opt" id="benchWrap" hidden>Benchmark
+          <select id="bench" aria-label="Benchmark"><option value="brent" selected>Brent</option><option value="wti">WTI</option></select></label>
+        <label class="opt" id="in2020Wrap"><input type="checkbox" id="in2020"> Keep 2020 in the five-year range</label>
+      </span>
+      <span id="optFlows" class="row" hidden>
+        <label class="opt">Region <select id="region" aria-label="Region"></select></label>
+        <label class="opt"><input type="checkbox" id="tierA" checked> Tier A arcs (US imports)</label>
+        <label class="opt"><input type="checkbox" id="tierB" checked> Tier B columns (production)</label>
+        <span class="note">Crude oil only</span>
+      </span>
     </div>
 
     <div class="stage">
@@ -145,6 +182,8 @@
           <dt>Brent minus WTI, daily</dt><dd id="rSpread"></dd>
           <dt>10-year Treasury</dt><dd id="rUst"></dd>
           <dt>Geopolitical risk</dt><dd id="rGpr"></dd>
+          <dt>Brent volatility, 20-day</dt><dd id="rVol"></dd>
+          <dt>Higher than this share of trading days since 1987</dt><dd id="rVolRank"></dd>
         </dl>
         <h3>Shipping, 7-day average</h3>
         <dl id="rShip"></dl>
@@ -183,14 +222,19 @@
 
     <div class="legend" id="legend"></div>
     <p class="note" id="caption" style="margin-top:10px"></p>
+    <details class="explain"><summary>What am I looking at?</summary><div id="explainText"></div></details>
+    <div class="flowlists" id="flowLists" hidden></div>
   </section>
 
   <section aria-labelledby="h-how">
     <h2 id="h-how">How to read this</h2>
     <ul>
       <li><b>Shows what moved together, not what caused what.</b> Tanker counts, prices and the score come from different sources and do not prove one another.</li>
+      <li><b>Price terrain.</b> Two walls, Brent at the back and WTI in front. The top edge is the daily spot price and the colour is the 20-day volatility. WTI's wall drops below the floor on April 20, 2020, the day it settled below zero. Pins mark spikes found by fixed rules. A pin explains a spike only after it has been hand-checked against its sources.</li>
+      <li><b>Volatility.</b> Realized volatility is the standard deviation of daily price changes over 20 trading days, scaled to a year. The readout ranks it against every trading day since 1987.</li>
+      <li><b>World flows.</b> Measured data only: crude production by country (EIA international data) and US crude imports by country of origin (EIA). Worldwide trade between other countries is not published in a source this page may republish, so it is not drawn.</li>
       <li><b>Tanker pillars.</b> Height is the 7-day average of tankers per day. The ring on each pillar marks that chokepoint's own median for 2019 to 2025, so a pillar below its ring is running under its usual traffic. Counts come from satellite ship signals and miss ships that switch them off.</li>
-      <li><b>Skyline.</b> One bar per week. Columns run Jan to Dec, rows run 1996 (back) to 2026 (front). Bars above the floor mean the US market is tight against the same week in the prior five years, bars below it mean loose. Bars after the selected date are faded.</li>
+      <li><b>Skyline.</b> One bar per week. Columns run Jan to Dec, rows run 1986 (back) to 2026 (front). In the tightness view, bars above the floor mean the US market is tight against the same week in the prior five years, bars below it mean loose. Bars after the selected date are faded.</li>
       <li><b>The 2020 switch.</b> The default leaves 2020 out of every five-year range, because the pandemic swelled stocks and widens the range. Keep it in and 2021 to 2025 read tighter. Same data, different method.</li>
       <li><b>US data only.</b> The score ignores the rest of the world, which is why Brent minus WTI sits beside it. A wide gap with a "normal" score is a global shortage the US data does not show.</li>
     </ul>

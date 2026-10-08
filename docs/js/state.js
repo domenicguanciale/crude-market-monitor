@@ -2,11 +2,12 @@
 // Every view subscribes to it. No view keeps its own copy of the date, so they cannot disagree.
 // Pure functions only: no DOM, no Three.js, so the browser tests can check it directly.
 
-export const VIEWS = ['globe', 'sky', 'hz'];
+export const VIEWS = ['price', 'globe', 'sky', 'hz', 'flows'];
+export const MEASURES = ['score', 'vol', 'price'];   // what the skyline shows
 export const SPEEDS = { slow: 14, normal: 35, fast: 120, year: 365 };   // days per second
 
 export function createState(initial, days) {
-  const s = { day: days - 1, playing: false, speed: SPEEDS.normal, view: 'globe', keep2020: false, ...initial };
+  const s = { day: days - 1, playing: false, speed: SPEEDS.normal, view: 'price', measure: 'score', keep2020: false, ...initial };
   s.day = clampDay(s.day, days);
   const subs = new Set();
   return {
@@ -18,6 +19,7 @@ export function createState(initial, days) {
         let v = v0;
         if (k === 'day') v = clampDay(v, days);
         if (k === 'view' && !VIEWS.includes(v)) continue;
+        if (k === 'measure' && !MEASURES.includes(v)) continue;
         if (s[k] !== v) { s[k] = v; changed.push(k); }
       }
       if (changed.length) for (const fn of subs) fn({ ...s }, changed);
@@ -32,9 +34,9 @@ export function clampDay(day, days) {
   return Number.isFinite(d) ? Math.min(days - 1, Math.max(0, d)) : days - 1;
 }
 
-// The URL hash holds the view, date and 2020 switch, so a link opens where it was shared.
+// The URL hash holds the view, date, skyline measure and 2020 switch, so a link opens where it was shared.
 export function toHash(st, isoOf) {
-  return '#v=' + st.view + '&d=' + isoOf(st.day) + (st.keep2020 ? '&k=1' : '');
+  return '#v=' + st.view + '&d=' + isoOf(st.day) + (st.measure && st.measure !== 'score' ? '&m=' + st.measure : '') + (st.keep2020 ? '&k=1' : '');
 }
 
 export function fromHash(hash, dayOf, days) {
@@ -43,6 +45,7 @@ export function fromHash(hash, dayOf, days) {
   const d = h.get('d');
   if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) out.day = clampDay(dayOf(d), days);
   if (VIEWS.includes(h.get('v'))) out.view = h.get('v');
+  if (MEASURES.includes(h.get('m'))) out.measure = h.get('m');
   if (h.get('k') === '1') out.keep2020 = true;
   return out;
 }

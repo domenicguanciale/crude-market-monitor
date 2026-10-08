@@ -433,16 +433,20 @@ Without measured totals and a measured starting pattern, the model would draw ro
 
 ## 3D view
 
-`docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one shared time state, from 1986 to today. It opens at the start of the 2026 Strait of Hormuz disruption. See `3D_VIEW.md` for details.
+`docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows five linked views driven by one shared time state, from 1986 to today. It opens in the price terrain at the start of the 2026 Strait of Hormuz disruption, with the whole price history behind it. See `3D_VIEW.md` for details.
+- **Price terrain:** Brent and WTI as walls through time, coloured by 20-day volatility, with WTI's negative print as a trench and a pin on every rule-detected spike.
 - **Globe:** tanker traffic at six chokepoints as pillars, each with a ring at its own 2019 to 2025 median.
-- **Skyline:** thirty years of the weekly tightness score, with the 2020 switch.
+- **Skyline:** every week since 1986 by tightness score (with the 2020 switch), 20-day volatility or price level, so 2026 can be compared with every earlier year.
 - **Hormuz close-up:** one moving ship per daily tanker transit on a real coastline.
+- **World flows:** measured crude production by country (Tier B) and US crude imports by origin (Tier A), month by month, with a "who sold, who bought" table. Modeled flows (Tier C) are not published.
 
 Data comes from `docs/data/viz3d.js`, written by `export_3d.py` under the same publishing rules as the showcase. `tools/check_lanes.py` confirms every drawn shipping lane stays in open water. Browser tests (`tests/browser/`, Playwright) check both pages in light and dark mode at desktop and phone width, and check readouts against the database. To open the 3D page locally, serve `docs/` (`.venv/bin/python -m http.server 8503 -d docs`), because it uses ES modules.
 
 **What the 3D page does not claim**
 - Ship positions, routes and directions are a display choice. The data has daily counts, not vessel tracks or origins, so every ship has the same colour.
 - Facility pins appear only for facilities tied to a hand-checked event.
+- Spike pins are found by fixed rules. They carry no explanation until the spike has been hand-checked.
+- World flows show production, not exports, and US imports only. Trade between other countries is not drawn.
 
 ## Ontology
 

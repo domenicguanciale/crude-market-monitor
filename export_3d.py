@@ -2,7 +2,8 @@
 
 Run after the data scripts: .venv/bin/python export_3d.py
 The page is static (GitHub Pages): no server, no keys. It loads only this one file.
-The file is JavaScript (window.VIZ3D = {...}) instead of JSON so the page also opens by double-clicking it.
+The file is JavaScript (window.VIZ3D = {...}). A second file, docs/data/flows.json, is loaded only when the
+world flows view opens (lazy loading, M6), because most visitors never open it.
 
 What goes in:
 - Daily tanker transits at the six chokepoints, 7-day average (IMF PortWatch, credit required)
@@ -11,6 +12,11 @@ What goes in:
   (the project default) and 2020 kept in
 - A land mask for the globe and a detailed coastline of the Persian Gulf region (Natural Earth, public domain,
   via the world-atlas package; tools/ has the scripts that made them)
+- Daily 20-day realized volatility of Brent and WTI and weekly price and volatility rows (from spikes.py, M6)
+- The spike catalog (rule-detected moves). A cause note and its sources are exported only for spikes the
+  user has hand-checked; every other pin says "not yet hand-checked"
+- flows.json: measured flows only. Tier A (EIA US crude imports by origin) and Tier B (EIA crude production by
+  country). Tier C, the modeled allocation in ipf.py, is never exported (no publishable totals or prior)
 - Facility pins for the Hormuz close-up, but only facilities tied to a hand-checked disruption event.
   The facility rows were created from the AI-drafted event tables, so an unchecked row never puts a pin
   on the public page. Names and places only.
@@ -33,9 +39,13 @@ import db
 import fred
 import gpr
 import seasonal
+import spikes
 
 HERE = Path(__file__).parent
 OUT = HERE / "docs" / "data" / "viz3d.js"
+FLOWS_OUT = HERE / "docs" / "data" / "flows.json"
+FLOW_BASELINE_YEAR = 2025                # "change from before the disruption" = against the 2025 monthly average
+BUDGET_KB = {"viz3d.js": 1536, "flows.json": 512}   # gzipped size limits, checked by tests/test_export_3d.py
 LAND = HERE / "land_mask.json"          # made once from world-atlas land-110m, see tools/make_globe_mask.mjs
 REGION = HERE / "region_land.json"      # world-atlas land-10m clipped to the Gulf, see tools/make_region_land.mjs
 START = dt.date(1986, 1, 2)              # first EIA WTI spot price; the shared timeline starts here (M5)
@@ -49,7 +59,12 @@ PUBLISHABLE = {
     "10-year Treasury yield (FRED)": fred.INDICATORS["UST10Y"]["publishable"],
     "Hormuz and other chokepoints (IMF PortWatch)": chokepoints.PUBLISHABLE,
     "Geopolitical Risk Index": gpr.PUBLISHABLE,
+    "Realized volatility and spike catalog (computed from EIA prices)": True,
+    "US crude imports by origin, Tier A (EIA)": True,
+    "Crude production by country, Tier B (EIA)": True,
+    "Country label points (Natural Earth)": True,
 }
+EXPORTED_TIERS = ("A",)                  # trade_flow tiers allowed out; "C" (modeled) must never appear here
 
 
 def check_publishable():
@@ -73,10 +88,14 @@ def compact(values):
 
 
 def aligned(df, date_col, value_col, idx, fill_limit=None, digits=2):
-    """One value per calendar day. Gaps (weekends, holidays) carry the last value forward."""
+    """One value per calendar day. Gaps (weekends, holidays) carry the last value forward, at most `fill_limit`
+    days (None = no limit, 0 = no carrying, so only days with a real value are filled)."""
     s = df.assign(d=pd.to_datetime(df[date_col])).set_index("d")[value_col].astype(float)
     s = s[~s.index.duplicated(keep="last")].sort_index()
-    s = s.reindex(s.index.union(idx)).ffill(limit=fill_limit).reindex(idx)
+    s = s.reindex(s.index.union(idx))
+    if fill_limit != 0:
+        s = s.ffill(limit=fill_limit)
+    s = s.reindex(idx)
     return [None if np.isnan(v) else round(float(v), digits) for v in s]
 
 
@@ -159,6 +178,99 @@ def region_block(con):
             "lanes": lanes}
 
 
+def market_block(con, idx):
+    """Daily 20-day realized volatility per benchmark, and one row per ISO week for the skyline:
+    [ISO year, ISO week, Friday of that week, average price over its trading days, last 20-day volatility]."""
+    rv = con.execute("SELECT indicator, obs_date, value FROM daily_indicator WHERE indicator IN ('RV20_BRENT', 'RV20_WTI') "
+                     "ORDER BY obs_date").df()
+    px = con.execute("SELECT benchmark, price_date, price FROM price_series WHERE benchmark IN ('Brent', 'WTI') "
+                     "AND price_date >= ? ORDER BY price_date", [START]).df()
+    out = {"rv20": {}, "weekly": {}}
+    for b in ("Brent", "WTI"):
+        r = rv[rv.indicator == "RV20_" + b.upper()]
+        out["rv20"][b.lower()] = compact(aligned(r, "obs_date", "value", idx, 0, 4))   # trading days only, so ranks match spikes.py
+        p = px[px.benchmark == b].assign(d=pd.to_datetime(px.price_date))
+        p = p.merge(r.assign(d=pd.to_datetime(r.obs_date))[["d", "value"]], on="d", how="left")
+        iso = p.d.dt.isocalendar()
+        rows = []
+        for (y, w), g in p.groupby([iso.year, iso.week]):
+            last_rv = g["value"].dropna()
+            rows.append([int(y), int(w), dt.date.fromisocalendar(int(y), int(w), 5).isoformat(),
+                         round(float(g.price.mean()), 2), None if last_rv.empty else round(float(last_rv.iloc[-1]), 3)])
+        out["weekly"][b.lower()] = rows
+    return out
+
+
+def spike_block(con):
+    """Every cataloged spike, as found by the rules in spikes.py. Facts only (dates, prices, size, rule).
+    The cause note and its sources go out only when the user has hand-checked the spike."""
+    rows = con.execute("SELECT spike_id, benchmark, kind, rule, direction, start_date, extreme_date, start_price, "
+                       "extreme_price, size_usd, size_pct, nonpositive, hand_checked, cause_note, source_ids "
+                       "FROM spike ORDER BY extreme_date, spike_id").fetchall()
+    out = []
+    for sid, bench, kind, rule, direction, d0, d1, p0, p1, usd, pct, nonpos, checked, note, src in rows:
+        r = {"id": sid, "b": bench, "k": kind, "rule": rule, "dir": direction, "d0": d0.isoformat(), "d1": d1.isoformat(),
+             "p0": None if p0 is None else round(p0, 2), "p1": None if p1 is None else round(p1, 2),
+             "usd": None if usd is None else round(usd, 2), "pct": None if pct is None or pd.isna(pct) else round(pct, 4),
+             "neg": bool(nonpos), "checked": bool(checked)}
+        # Tag any spike that rests on an unconfirmed print, including Brent minus WTI spikes on a Brent print
+        if any(b in (bench, bench.split("-")[0]) and d0 <= d <= d1 for b, d in spikes.UNCONFIRMED):
+            r["unconfirmed"] = True
+        if checked and note:
+            ids = [i for i in (src or "").split(",") if i]
+            srcs = con.execute("SELECT publisher, url FROM source WHERE source_id IN (SELECT unnest(?::VARCHAR[]))", [ids]).fetchall() if ids else []
+            r["note"] = note
+            r["sources"] = [[pub, url] for pub, url in srcs]
+        out.append(r)
+    return out
+
+
+def flows_block(con):
+    """Measured flows by month for the world flows view (written to flows.json, loaded on demand).
+    Each country series is {"s": first month index, "v": thousand b/d}; a month without a reported row is null."""
+    tiers = list(EXPORTED_TIERS)
+    imp = con.execute("SELECT period, exporter, volume_kbd FROM trade_flow WHERE importer = 'USA' AND product = 'crude' "
+                      "AND tier IN (SELECT unnest(?::VARCHAR[])) ORDER BY period", [tiers]).df()
+    prod = con.execute("SELECT period, country, volume_kbd FROM production_by_country ORDER BY period").df()
+    places = {iso: (name, region, lat, lon) for iso, name, region, lat, lon in con.execute(
+        "SELECT iso3, name, region, label_lat, label_lon FROM country WHERE label_lat IS NOT NULL").fetchall()}
+    first = min(imp.period.min(), prod.period.min())
+    last = max(imp.period.max(), prod.period.max())
+    months = [m.date() for m in pd.date_range(first, last, freq="MS")]
+    pos = {m: i for i, m in enumerate(months)}
+
+    def series(df, key):
+        out, base = {}, {}
+        for iso, g in df.groupby(key):
+            if iso not in places:
+                continue
+            vals = [None] * len(months)
+            for per, v in zip(g.period, g.volume_kbd):
+                vals[pos[pd.Timestamp(per).date()]] = None if pd.isna(v) else round(float(v), 1)
+            out[iso] = compact(vals)
+            y = g[pd.to_datetime(g.period).dt.year == FLOW_BASELINE_YEAR].volume_kbd.dropna()
+            if len(y):
+                base[iso] = [round(float(y.mean()), 1), int(len(y))]
+        return out, base
+
+    production, prod_base = series(prod, "country")
+    imports, imp_base = series(imp, "exporter")
+    used = set(production) | set(imports) | {"USA"}
+    return {
+        "months": [m.isoformat()[:7] for m in months],
+        "baseline_year": FLOW_BASELINE_YEAR,
+        "countries": {iso: [places[iso][0], places[iso][1], round(places[iso][2], 2), round(places[iso][3], 2)] for iso in sorted(used)},
+        "production": production, "production_base": prod_base,
+        "us_imports": imports, "us_imports_base": imp_base,
+        "unmapped_producers": sorted(set(prod.country) - set(places)),
+        "tiers": {"A": "Measured bilateral: EIA US crude oil imports by country of origin, thousand b/d",
+                  "B": "Measured country totals: EIA international data, crude oil production, thousand b/d"},
+        "sources": [["U.S. Energy Information Administration, petroleum/move/impcus", "https://www.eia.gov/opendata/browser/petroleum/move/impcus"],
+                    ["U.S. Energy Information Administration, international", "https://www.eia.gov/opendata/browser/international"],
+                    ["Natural Earth (label points, public domain)", "https://www.naturalearthdata.com/about/terms-of-use/"]],
+    }
+
+
 def main():
     check_publishable()
     con = db.connect()
@@ -178,14 +290,20 @@ def main():
         "chokepoints": chokepoint_block(con, idx),
         "prices": price_block(con, idx),
         "weeks": weekly_block(con),
+        "market": market_block(con, idx),
+        "spikes": spike_block(con),
         "credits": ["EIA (Brent, WTI, inventories, refinery utilization)", "IMF PortWatch (tanker transits)",
                     "Federal Reserve via FRED (10-year Treasury yield)", "Caldara and Iacoviello (Geopolitical Risk Index, CC BY)",
-                    "Natural Earth (land outlines, public domain)"],
+                    "Natural Earth (land outlines and label points, public domain)"],
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("window.VIZ3D=" + json.dumps(data, separators=(",", ":")) + ";\n")
     print(f"Wrote {OUT.relative_to(HERE)} ({OUT.stat().st_size / 1024:.0f} KB): {len(idx)} days, "
-          f"{len(data['chokepoints'])} chokepoints, {len(data['weeks'])} scored weeks")
+          f"{len(data['chokepoints'])} chokepoints, {len(data['weeks'])} scored weeks, {len(data['spikes'])} spikes")
+    flows = flows_block(con)
+    FLOWS_OUT.write_text(json.dumps(flows, separators=(",", ":")))
+    print(f"Wrote {FLOWS_OUT.relative_to(HERE)} ({FLOWS_OUT.stat().st_size / 1024:.0f} KB): {len(flows['months'])} months, "
+          f"{len(flows['production'])} producers, {len(flows['us_imports'])} US import origins (Tier A and B only)")
 
 
 if __name__ == "__main__":

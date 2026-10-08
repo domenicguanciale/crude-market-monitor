@@ -223,6 +223,17 @@ With no prior, the method spreads each exporter's oil across importers in propor
 
 **One-minute answer: "What are the modeled arcs?"** They are not measured trade. IPF takes each country's total exports and imports and a starting guess of who trades with whom, and adjusts the guess until every total matches. The result is only as good as the starting guess, and for 2026 I could not get a publishable one, so I publish the measured US flows and production instead of pretending to know the rest.
 
+## 13. How the 3D page draws the data (World Oil Simulation, M6)
+
+These are display rules. None of them changes a number; each was fixed before looking at the result.
+- **Volatility colour.** The price walls and the skyline colour each day or week by which seventh of all trading days (or weeks) its 20-day realized volatility falls in. Sevenths match the seven-colour scale and need no threshold chosen by eye.
+- **Volatility rank.** "Higher than X% of trading days since 1987" is the share of all trading days with a lower 20-day volatility, the same `percentile_rank` as section 11. The page exports volatility on trading days only, so the rank matches the database.
+- **Weekly rows.** A week is an ISO week (Monday to Sunday), dated to its Friday, the same as the score. Price is the average over the week's trading days; volatility is the value on the last trading day.
+- **Spike pins.** Every row of the spike catalog. Episodes (surges, crashes, drawdowns, spread blowouts) are shown by default and one-day moves on request. A pin sits on its benchmark's wall at the extreme date; spread blowouts sit on the Brent wall.
+- **Change in world flows.** Each country's month is compared with its 2025 monthly average, the last full year before the 2026 disruption. For US imports the average uses the months EIA reported (the tooltip gives the count), because a month with no row is not the same as a measured zero. The latest month is shown for up to six months past it, labelled.
+
+**One-minute answer: "Why do the colours look the way they do?"** Colour shows rank, not level: a wall is orange when that day's volatility is in the most turbulent seventh of all trading days since 1987. So 2026 can be compared with 1990, 2008 and 2020 without me picking where "high" starts.
+
 ## Sources
 
 - EIA, Weekly Petroleum Status Report, Appendix B: https://www.eia.gov/petroleum/supply/weekly/pdf/appendixb.pdf
