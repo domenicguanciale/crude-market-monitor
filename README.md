@@ -497,6 +497,7 @@ EIA releases the weekly figures on Wednesdays, for the week that ended the previ
 From METHODS.md section 8. Items marked *(later version)* describe parts of the project not built yet.
 
 - The score uses US data only and measures US conditions, not global ones.
+- Brent here is EIA's **spot** price for physical cargoes. In 2026 it has often run far above Brent futures quoted in the news (for example $114 to $120 spot against roughly $92 to $103 futures in late September). One-day spikes in EIA's series, such as $135.51 on October 2, 2026 (+18%, with WTI flat), are kept as published but could not be confirmed in news reports. The weekly spread averages over the week, which softens single-day spikes.
 - No free live source was found for the futures curve. The curve comparison is history only and ends April 5, 2024.
 - OVX, and later the NASDAQ index and the high-yield spread, are third-party copyrighted on FRED. They are used for personal research and are not published in the showcase.
 - The GPR index counts newspaper coverage. It measures attention to geopolitical tension, not the tension itself, and its articles often describe the previous day.
