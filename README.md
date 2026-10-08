@@ -393,6 +393,16 @@ Three series added for the simulation, each confirmed on its live source and lis
 
 **Brent at the end of the first quarter of 2026.** EIA reported Brent **front-month futures** finishing the quarter at $118; this project's Brent is EIA's daily **spot** price, $126.69 on March 31. Both are right; captions must say which one they quote.
 
+## Spike catalog (World Oil Simulation, M2)
+
+`spikes.py` finds the biggest crashes and surges since 1986 by rule: one-day shocks (8%, 12%, or 4 standard deviations), surges (40% in 60 trading days), crashes (35% in 60 trading days), drawdowns of 30% or more, Brent minus WTI blowouts ($15), and 20- and 60-day realized volatility. Negative WTI in April 2020 is handled in dollars, never through a log. Rules: METHODS.md section 11. Full ranked tables and the sensitivity check: [docs/SPIKES.md](docs/SPIKES.md).
+
+- **2026 against history.** Brent had 16 days with moves of 8% or more in 2026, second only to 2020 (21). Its 20-day realized volatility peaked at **112% annualized on April 17, 2026**, higher than 99.3% of all trading days since 1987.
+- **Largest one-day moves** (negative-price days excluded): Brent +51.0% on April 22, 2020 and -47.5% on April 21, 2020; WTI +53.1% on April 22, 2020 and -33.4% on January 17, 1991.
+- **Deepest crash episodes:** 2020 (Brent -87%, WTI below zero), 2008 (about -77%), 1986 (WTI -61%), 2014 to 2015 (about -54%), and April to July 2026 (Brent -50%).
+- **The widest Brent premium over WTI** was $37.62 on October 2, 2026, on a Brent print that could not be confirmed in news reports.
+- Every spike is **not yet hand-checked**, and no cause is assigned by the rules.
+
 ## 3D view
 
 `docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one time slider. See `3D_VIEW.md` for details.
@@ -613,6 +623,7 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
+| `spikes.py` | Spike catalog: shocks, surges, crashes, drawdowns, volatility, spread blowouts, sensitivity check |
 | `retail_fuel.py` | US weekly retail gasoline and diesel prices (EIA) |
 | `sources.py` | Stores every dataset source with its terms and publishable flag |
 | `tools/reconcile.py` | Checks spot numbers live at the source against the database and the page |

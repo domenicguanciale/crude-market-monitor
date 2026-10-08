@@ -179,6 +179,29 @@ CREATE TABLE IF NOT EXISTS chokepoint_transit (
     PRIMARY KEY (facility_id, transit_date)
 );
 
+-- Spike: one crash, surge, one-day shock, drawdown or spread blowout found by the rules in spikes.py (M2).
+-- Rebuilt from prices on every run. Explanations and sources are added in M3; until hand-checked, a spike
+-- carries no cause on the public page.
+CREATE TABLE IF NOT EXISTS spike (
+    spike_id        VARCHAR PRIMARY KEY,   -- e.g. 'BRENT-CRASH-2008-12-19'
+    benchmark       VARCHAR,               -- 'Brent', 'WTI' or 'Brent-WTI' (the spread)
+    kind            VARCHAR,               -- daily, surge, crash, drawdown, spread
+    rule            VARCHAR,               -- the rule and threshold that flagged it
+    direction       VARCHAR,               -- up or down
+    start_date      DATE,                  -- previous close for a daily move; the turning point for episodes
+    extreme_date    DATE,                  -- the day of the move, or the peak or trough of an episode
+    end_date        DATE,
+    start_price     DOUBLE,
+    extreme_price   DOUBLE,
+    size_usd        DOUBLE,
+    size_pct        DOUBLE,                -- empty when the starting price is not positive
+    nonpositive     BOOLEAN,               -- a price at or below zero is involved (WTI, April 2020)
+    recovery_date   DATE,                  -- drawdowns: first day back at the starting peak, if any
+    cause_note      VARCHAR,               -- M3: neutral sourced explanation
+    source_ids      VARCHAR,               -- M3: comma-separated source ids
+    hand_checked    BOOLEAN DEFAULT FALSE
+);
+
 -- Retail fuel price: one US weekly average retail price for one product (EIA, M1).
 CREATE TABLE IF NOT EXISTS retail_fuel_price (
     product         VARCHAR NOT NULL,     -- 'gasoline' (regular, all formulations) or 'diesel' (No. 2)

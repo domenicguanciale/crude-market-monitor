@@ -157,6 +157,13 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `tools/reconcile.py` checks live source against database against page and writes docs/RECONCILIATION.md (10 of 10 matched).
 - Brent at the end of 1Q26: EIA's $118 is **front-month futures**; the project's Brent is EIA **spot** ($126.69 on Mar 31). Captions must say which.
 
+## M2 spike catalog (Oct 7, 2026)
+
+- `spikes.py`: all thresholds in `CONFIG`, sensitivity values in `SENSITIVITY`. It writes the `spike` table (rebuilt each run, derived), RV20 and RV60 volatility per benchmark in `daily_indicator`, and `docs/SPIKES.md`. METHODS.md section 11 documents it.
+- Negative prices: percent change only when the previous price is positive; log return only when both are positive. Non-positive days are listed separately and excluded from percent rankings and the spread blowout rule (April 20, 2020 spread of $54.34 is arithmetic, not a blowout).
+- `UNCONFIRMED` in spikes.py marks prints that could not be confirmed (Brent Oct 2, 2026); they are kept as published and tagged in reports.
+- Spikes carry `cause_note`, `source_ids` and `hand_checked`, filled in M3. The rules assign no causes.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`

@@ -186,3 +186,30 @@ The output reads: "Three past events of similar size in a tight market moved Bre
 - EIA, Prices and refinery margins in the third quarter (Oct 5, 2026): https://www.eia.gov/todayinenergy/detail.php?id=68245
 - EIA, Strait of Hormuz remains critical oil chokepoint (June 16, 2025): https://www.eia.gov/todayinEnergy/detail.php?id=65504
 - FRED, WTI and Brent daily prices: https://fred.stlouisfed.org/series/DCOILWTICO and https://fred.stlouisfed.org/series/DCOILBRENTEU
+
+## 11. Spike catalog (World Oil Simulation, M2)
+
+The biggest crashes and surges are found by rules in code (`spikes.py`), not picked by eye. Every threshold sits in one `CONFIG` block. The results are in `docs/SPIKES.md` and the `spike` table.
+
+**Daily changes, with negative prices handled.** For each trading day: the dollar change; the percent change, only when the previous price is positive; and the log return, only when both prices are positive. WTI settled at -$36.98 on April 20, 2020. The fall to it is $55.29. The percent change out of it is undefined, so April 2020 is listed separately in dollars and kept out of the percent rankings.
+
+**Rules**
+
+| Rule | Flags | Default |
+|---|---|---|
+| Daily shock | A one-day move of at least 8% (and, marked separately, 12%), or a log return at least 4 standard deviations from zero, where the standard deviation comes from the previous 250 trading days only | 8%, 12%, z = 4 |
+| Surge | The price is at least 40% above the lowest positive price of the last 60 trading days | 40%, 60 days |
+| Crash | The price is at least 35% below the highest price of the last 60 trading days | 35%, 60 days |
+| Drawdown | A peak is confirmed when the price falls 30% below it, a trough when it rises 30% above it. Each peak-to-trough fall is an episode, with the date the price first regained the peak | 30% |
+| Realized volatility | Standard deviation of daily log returns over 20 and 60 trading days, times the square root of 252 to annualize | 20, 60 days |
+| Spread blowout | Brent minus WTI at least $15 (or WTI over Brent by $15), on days when both prices are positive | $15 |
+
+- **Episodes.** Flagged days within 5 trading days of each other form one episode. An episode lasts as long as prices stay beyond the threshold, so it can run longer than the 60-day window. Its size is measured from its turning point (the low before a surge, the high before a crash) to its extreme.
+- **Sensitivity check.** The same rules run at other thresholds: daily 6% to 15%, surges 30% to 50%, crashes 25% to 45%, windows 40 to 90 days, drawdowns 20% to 40%, spreads $10 to $20. Moving a threshold changes how long the list is, not which moves top it. The surges and crashes found at both the strictest and loosest settings are listed in `docs/SPIKES.md`.
+- **Unconfirmed prints** are kept as published and marked. Brent at $135.51 on October 2, 2026 matches EIA and FRED but was not confirmed in news reports.
+
+**Worked example.** WTI on January 6, 2020 was $63.27. By April 3 it was $28.36, more than 35% below the highest price of the previous 60 days, so the crash rule flags it. The episode runs to the trough, -$36.98 on April 20, 2020. Because that trough is below zero, its size is reported in dollars (-$100.25), not as a percent.
+
+**One-minute answer: "How did you find the spikes?"** I wrote the rules first and let the code find the moves. A day counts as a shock if prices moved 8% or more, or the move was more than four standard deviations of the previous year's daily moves. A surge is 40% above the 60-day low, a crash 35% below the 60-day high. Then I reran everything at looser and stricter thresholds: the list gets longer or shorter, but the same episodes stay on top (2020, 2008, 1986, 1990 to 1991, 2014 to 2015, and 2026). Negative WTI in April 2020 breaks percent math, so I handle it in dollars and never take a log of a non-positive price.
+
+**What 2026 looks like against history** (from `docs/SPIKES.md`, Oct 7, 2026): Brent had 16 days with moves of 8% or more in 2026, more than any year except 2020. Brent's 20-day realized volatility peaked at 112% annualized on April 17, 2026, higher than 99.3% of all trading days since 1987. These are measured moves; causes are not assigned by the rules.
