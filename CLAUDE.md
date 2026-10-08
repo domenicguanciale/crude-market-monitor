@@ -164,6 +164,12 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `UNCONFIRMED` in spikes.py marks prints that could not be confirmed (Brent Oct 2, 2026); they are kept as published and tagged in reports.
 - Spikes carry `cause_note`, `source_ids` and `hand_checked`, filled in M3. The rules assign no causes.
 
+## M3 spike explanations (Oct 7, 2026)
+
+- `data/spikes_explained.csv` (S01 to S12) is the source of truth. Every claim is attributed to its source; the wording is neutral; no single cause is given. `hand_checked` uses the same values as the event tables, and only the user fills it.
+- `explain_spikes.py` links spikes by `extreme_date` within each window (`spike.cause_note`, `source_ids` as `spk-Sxx-n` citation rows) and writes docs/SPIKE_EXPLANATIONS.md with database context. It runs after spikes.py, because spikes.py rebuilds the table.
+- Brent figures from EIA articles are often front-month futures, not the project's daily spot. Each note says which.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`

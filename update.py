@@ -15,6 +15,7 @@ STEPS = [
     ("EIA weekly data and prices", ["fetch.py"]),
     ("Five-year comparison, score, spread, futures curve", ["calculate.py"]),
     ("Spike catalog and realized volatility", ["spikes.py"]),
+    ("Spike explanations linked to the catalog", ["explain_spikes.py"]),
     ("CFTC positioning (legacy and disaggregated)", ["cot.py"]),
     ("US retail gasoline and diesel", ["retail_fuel.py"]),
     ("FRED daily series (needs FRED_API_KEY)", ["fred.py"]),

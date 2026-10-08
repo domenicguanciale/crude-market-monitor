@@ -403,6 +403,13 @@ Three series added for the simulation, each confirmed on its live source and lis
 - **The widest Brent premium over WTI** was $37.62 on October 2, 2026, on a Brent print that could not be confirmed in news reports.
 - Every spike is **not yet hand-checked**, and no cause is assigned by the rules.
 
+## Spike explanations (World Oil Simulation, M3)
+
+`data/spikes_explained.csv` holds 12 sourced, neutral explanations for the candidate episodes in the brief: 1986, 1990 to 1991, 1997 to 1998, 2008, 2011, 2014 to 2016, Abqaiq 2019, April 2020, 2022, the Red Sea from late 2023, June 2025 and the 2026 Strait of Hormuz disruption. Each claim is attributed to its source (mostly EIA, plus the Federal Reserve, IMF, IEA, CFTC and DOE). `explain_spikes.py` links each episode to the spikes the rules found inside its window (278 spikes) and adds context from the database: prices, peak volatility, the tightness score and futures curve before it began, positioning, and tanker transits where PortWatch covers the dates. Full write-up: [docs/SPIKE_EXPLANATIONS.md](docs/SPIKE_EXPLANATIONS.md).
+
+- **Two counter-examples are kept on purpose.** The Red Sea attacks from late 2023 cut crude flows through Bab el-Mandeb by 18% in December, yet EIA reports Brent "traded in a range". In June 2025 Brent rose $5 in a day with Hormuz traffic not blocked. Physical disruption and price spikes do not line up one to one, consistent with Kilian (2009).
+- **Not yet hand-checked: 0 of 12.** A source-checker reports on each row; only you mark `hand_checked`. Unchecked explanations stay off the public pages.
+
 ## 3D view
 
 `docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one time slider. See `3D_VIEW.md` for details.
@@ -623,6 +630,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
+| `explain_spikes.py` | Links sourced episode explanations to the spike catalog, with database context |
+| `data/spikes_explained.csv` | The 12 episode explanations, with sources and hand-check status |
 | `spikes.py` | Spike catalog: shocks, surges, crashes, drawdowns, volatility, spread blowouts, sensitivity check |
 | `retail_fuel.py` | US weekly retail gasoline and diesel prices (EIA) |
 | `sources.py` | Stores every dataset source with its terms and publishable flag |

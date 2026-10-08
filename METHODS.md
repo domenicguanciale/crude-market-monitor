@@ -174,19 +174,6 @@ The output reads: "Three past events of similar size in a tight market moved Bre
 | Precautionary demand | Buying driven by fear of future shortage |
 | Force majeure | A declaration that a supplier cannot meet contracts because of events outside its control |
 
-## Sources
-
-- EIA, Weekly Petroleum Status Report, Appendix B: https://www.eia.gov/petroleum/supply/weekly/pdf/appendixb.pdf
-- MacKinlay, A. Craig (1997), "Event Studies in Economics and Finance," Journal of Economic Literature 35(1), pages 13 to 39: https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html
-- Kilian, Lutz (2009), "Not All Oil Price Shocks Are Alike," American Economic Review 99(3), as summarized and confirmed in a 2024 replication: https://arxiv.org/html/2409.00769v2
-- Caldara, Dario and Matteo Iacoviello (2022), "Measuring Geopolitical Risk," American Economic Review 112(4), pages 1194 to 1225. Data: https://www.matteoiacoviello.com/gpr.htm
-- EIA, Risk of oil supply disruptions can have an immediate effect on oil prices (Jan 31, 2020): https://www.eia.gov/todayinenergy/detail.php?id=42675
-- EIA, Saudi Arabia crude oil production outage (2019): https://www.eia.gov/todayinenergy/detail.php?id=41413
-- EIA, Prices increased sharply in the first quarter of 2026 (Apr 7, 2026): https://www.eia.gov/todayinenergy/detail.php?id=67424
-- EIA, Prices and refinery margins in the third quarter (Oct 5, 2026): https://www.eia.gov/todayinenergy/detail.php?id=68245
-- EIA, Strait of Hormuz remains critical oil chokepoint (June 16, 2025): https://www.eia.gov/todayinEnergy/detail.php?id=65504
-- FRED, WTI and Brent daily prices: https://fred.stlouisfed.org/series/DCOILWTICO and https://fred.stlouisfed.org/series/DCOILBRENTEU
-
 ## 11. Spike catalog (World Oil Simulation, M2)
 
 The biggest crashes and surges are found by rules in code (`spikes.py`), not picked by eye. Every threshold sits in one `CONFIG` block. The results are in `docs/SPIKES.md` and the `spike` table.
@@ -213,3 +200,16 @@ The biggest crashes and surges are found by rules in code (`spikes.py`), not pic
 **One-minute answer: "How did you find the spikes?"** I wrote the rules first and let the code find the moves. A day counts as a shock if prices moved 8% or more, or the move was more than four standard deviations of the previous year's daily moves. A surge is 40% above the 60-day low, a crash 35% below the 60-day high. Then I reran everything at looser and stricter thresholds: the list gets longer or shorter, but the same episodes stay on top (2020, 2008, 1986, 1990 to 1991, 2014 to 2015, and 2026). Negative WTI in April 2020 breaks percent math, so I handle it in dollars and never take a log of a non-positive price.
 
 **What 2026 looks like against history** (from `docs/SPIKES.md`, Oct 7, 2026): Brent had 16 days with moves of 8% or more in 2026, more than any year except 2020. Brent's 20-day realized volatility peaked at 112% annualized on April 17, 2026, higher than 99.3% of all trading days since 1987. These are measured moves; causes are not assigned by the rules.
+
+## Sources
+
+- EIA, Weekly Petroleum Status Report, Appendix B: https://www.eia.gov/petroleum/supply/weekly/pdf/appendixb.pdf
+- MacKinlay, A. Craig (1997), "Event Studies in Economics and Finance," Journal of Economic Literature 35(1), pages 13 to 39: https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html
+- Kilian, Lutz (2009), "Not All Oil Price Shocks Are Alike," American Economic Review 99(3), as summarized and confirmed in a 2024 replication: https://arxiv.org/html/2409.00769v2
+- Caldara, Dario and Matteo Iacoviello (2022), "Measuring Geopolitical Risk," American Economic Review 112(4), pages 1194 to 1225. Data: https://www.matteoiacoviello.com/gpr.htm
+- EIA, Risk of oil supply disruptions can have an immediate effect on oil prices (Jan 31, 2020): https://www.eia.gov/todayinenergy/detail.php?id=42675
+- EIA, Saudi Arabia crude oil production outage (2019): https://www.eia.gov/todayinenergy/detail.php?id=41413
+- EIA, Prices increased sharply in the first quarter of 2026 (Apr 7, 2026): https://www.eia.gov/todayinenergy/detail.php?id=67424
+- EIA, Prices and refinery margins in the third quarter (Oct 5, 2026): https://www.eia.gov/todayinenergy/detail.php?id=68245
+- EIA, Strait of Hormuz remains critical oil chokepoint (June 16, 2025): https://www.eia.gov/todayinEnergy/detail.php?id=65504
+- FRED, WTI and Brent daily prices: https://fred.stlouisfed.org/series/DCOILWTICO and https://fred.stlouisfed.org/series/DCOILBRENTEU
