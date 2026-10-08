@@ -38,7 +38,8 @@ HERE = Path(__file__).parent
 OUT = HERE / "docs" / "data" / "viz3d.js"
 LAND = HERE / "land_mask.json"          # made once from world-atlas land-110m, see tools/make_globe_mask.mjs
 REGION = HERE / "region_land.json"      # world-atlas land-10m clipped to the Gulf, see tools/make_region_land.mjs
-START = dt.date(2019, 1, 1)              # PortWatch starts here
+START = dt.date(1986, 1, 2)              # first EIA WTI spot price; the shared timeline starts here (M5)
+PORTWATCH_START = dt.date(2019, 1, 1)    # chokepoint data starts here
 BASELINE = (dt.date(2019, 1, 1), dt.date(2025, 12, 31))
 FIRST_YEAR = 1996                        # first full year of scores (scores start Nov 1995)
 REPO = "https://github.com/domenicguanciale/crude-market-monitor"
@@ -61,6 +62,16 @@ def day_index(end):
     return pd.date_range(START, end, freq="D")
 
 
+def compact(values):
+    """A day-indexed list -> {"s": index of the first value, "v": values from there to the last value}.
+    Days before a series starts (for example PortWatch before 2019) are simply absent, not padded."""
+    first = next((i for i, v in enumerate(values) if v is not None), None)
+    if first is None:
+        return {"s": 0, "v": []}
+    last = max(i for i, v in enumerate(values) if v is not None)
+    return {"s": first, "v": values[first:last + 1]}
+
+
 def aligned(df, date_col, value_col, idx, fill_limit=None, digits=2):
     """One value per calendar day. Gaps (weekends, holidays) carry the last value forward."""
     s = df.assign(d=pd.to_datetime(df[date_col])).set_index("d")[value_col].astype(float)
@@ -81,7 +92,7 @@ def chokepoint_block(con, idx):
         base = t[(t.transit_date >= pd.Timestamp(BASELINE[0])) & (t.transit_date <= pd.Timestamp(BASELINE[1]))]["tankers"].median()
         t["avg7"] = t["tankers"].rolling(7).mean()
         out.append({"id": fid, "name": name, "lat": round(lat, 3), "lon": round(lon, 3),
-                    "baseline": float(base), "tankers7": aligned(t, "transit_date", "avg7", idx, 3, 1)})
+                    "baseline": float(base), "tankers7": compact(aligned(t, "transit_date", "avg7", idx, 3, 1))})
     return out
 
 
@@ -93,10 +104,10 @@ def price_block(con, idx):
     g = ind[ind.indicator == "GPR"].copy()
     g["avg7"] = g["value"].rolling(7).mean()
     return {
-        "brent": aligned(px[px.benchmark == "Brent"], "price_date", "price", idx, 5),
-        "wti": aligned(px[px.benchmark == "WTI"], "price_date", "price", idx, 5),
-        "ust10y": aligned(ind[ind.indicator == "UST10Y"], "obs_date", "value", idx, 5),
-        "gpr": aligned(g, "obs_date", "avg7", idx, 3, 0),
+        "brent": compact(aligned(px[px.benchmark == "Brent"], "price_date", "price", idx, 5)),
+        "wti": compact(aligned(px[px.benchmark == "WTI"], "price_date", "price", idx, 5)),
+        "ust10y": compact(aligned(ind[ind.indicator == "UST10Y"], "obs_date", "value", idx, 5)),
+        "gpr": compact(aligned(g, "obs_date", "avg7", idx, 3, 0)),
     }
 
 
@@ -151,10 +162,13 @@ def region_block(con):
 def main():
     check_publishable()
     con = db.connect()
-    end = con.execute("SELECT max(transit_date) FROM chokepoint_transit").fetchone()[0]
+    end = con.execute("""SELECT greatest((SELECT max(price_date) FROM price_series WHERE benchmark IN ('Brent', 'WTI')),
+                                         (SELECT max(transit_date) FROM chokepoint_transit))""").fetchone()[0]
     idx = day_index(pd.Timestamp(end))
     data = {
+        "format": 2,                      # series are {"s": first day index, "v": values}
         "generated": dt.date.today().isoformat(),
+        "portwatch_start": PORTWATCH_START.isoformat(),
         "repo": REPO,
         "start": START.isoformat(),
         "days": len(idx),

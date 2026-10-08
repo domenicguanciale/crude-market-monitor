@@ -1,26 +1,43 @@
 # 3D view
 
-Page: `docs/3d.html`. Data: `docs/data/viz3d.js`, written by `export_3d.py`. One time slider drives three views.
+Page: `docs/3d.html`. Data: `docs/data/viz3d.js`, written by `export_3d.py`. Code: `docs/js/` (ES modules). One shared time state drives three views, on one time axis from January 2, 1986 to the latest data. The page opens on February 28, 2026, the start of the 2026 Strait of Hormuz disruption.
 
 | View | What it shows | Data |
 |---|---|---|
-| Globe | A pillar at each of six chokepoints. Height is tankers per day (7-day average). A ring marks that lane's own 2019 to 2025 median | IMF PortWatch via `chokepoint_transit` |
-| Skyline | One bar per week, 1996 to 2026. Height is the tightness score, from -3 loose to +3 tight. Switch: keep 2020 in the five-year range | `weekly_reading`, scored twice with `compare_2020.scores` |
-| Hormuz ships | A map of the Gulf with the coastline and one moving ship for each daily tanker transit. Facility pins appear only for facilities tied to hand-checked events (none yet) | `chokepoint_transit` and `facility` |
+| Globe | A pillar at each of six chokepoints. Height is tankers per day (7-day average). A ring marks that lane's own 2019 to 2025 median. Before January 1, 2019 the pillars say "no data" | IMF PortWatch via `chokepoint_transit` |
+| Skyline | One bar per week, from November 1995 (the first week with five full prior years) to today. Weeks after the selected date are faded. Height is the tightness score, from -3 loose to +3 tight. Switch: keep 2020 in the five-year range | `weekly_reading`, scored twice with `compare_2020.scores` |
+| Hormuz ships | A map of the Gulf with the coastline and one moving ship for each daily tanker transit. No ships before 2019, and the note says why. Facility pins appear only for facilities tied to hand-checked events (none yet) | `chokepoint_transit` and `facility` |
 
-The readout panel and the two strips under the canvas show Brent, WTI, the spread, the 10-year yield, the Geopolitical Risk Index and tanker counts for the selected date. The URL hash (`#v=hz&d=2026-03-25`) holds the view and date, so a link opens where you left it.
+The readout panel and the two strips under the canvas show Brent, WTI, the spread, the 10-year yield, the Geopolitical Risk Index and tanker counts for the selected date. The URL hash (`#v=hz&d=2026-03-25&k=1`) holds the view, the date and the 2020 switch, so a link opens where you left it. Any value the data does not have for a date (prices before Brent starts in 1987, scores before November 1995, tanker counts before 2019) shows as "n/a", never as an estimate.
+
+## How the code is laid out (M5)
+
+| File | Job |
+|---|---|
+| `docs/js/state.js` | The one shared state: date, playing, speed, view, 2020 switch. Views subscribe to it and never keep their own copy of the date, so they cannot disagree. Also the URL hash and deterministic playback (`advance`). Pure functions, no drawing |
+| `docs/js/data.js` | Reads `viz3d.js`. Each daily series is stored compactly as `{s: first day, v: values}` (format 2). `lastVal` carries a value forward at most 7 days, so a stale number never looks current |
+| `docs/js/scenes/globe.js`, `skyline.js`, `hormuz.js` | One file per view. Each returns the same small interface: camera, legend, caption, `update(state)`, `pick` for hover, and a text description for screen readers |
+| `docs/js/main.js` | Builds the renderer, wires the buttons and slider to the state, and draws only when something changed |
+
+Playback speeds are 14, 35, 120 or 365 days a second. Jump buttons go to 1986, 2019 (PortWatch starts), the 2026 disruption, the 2026 Hormuz low, and today. Playback pauses when the tab is hidden.
 
 ## Run it
 
 ```bash
 .venv/bin/python export_3d.py          # after fetch.py and calculate.py
 .venv/bin/python tools/check_lanes.py  # confirms every ship lane stays in open water
-open docs/3d.html                      # or push and open it on GitHub Pages
+.venv/bin/python -m http.server 8503 -d docs   # then open http://localhost:8503/3d.html
 ```
+
+The page uses ES modules, which browsers refuse to load from a `file://` address, so open it through a local server (above) or on GitHub Pages.
 
 `docs/index.html` links to the 3D page.
 
-`Crude_Market_Monitor_3D.html` is the same page with the data inlined, for sending as one file. It is git-ignored because no script regenerates it, so a committed copy would go stale. The page loads Three.js 0.160.0 from the jsDelivr CDN, so it needs internet.
+`Crude_Market_Monitor_3D.html` is the older single-file version from before M5, with the data inlined. It is git-ignored because no script regenerates it, so it is stale. The page loads Three.js 0.160.0 from the jsDelivr CDN, so it needs internet.
+
+## Tests
+
+`tests/browser/test_pages.py` runs both public pages in headless Chromium (Playwright): no console errors in light and dark mode at desktop and 390 px phone width, no sideways scroll, a non-blank canvas in every view, readouts equal to the database on fixed dates (2008-07-03, 2020-04-21, 2026-04-17), "n/a" before each series starts, and the state module's clamping, hash round trip and deterministic playback. `QA_SHOTS=1` saves screenshots to `docs/qa/`. The tests skip if Playwright is not installed.
 
 ## Limits to state if asked
 

@@ -1,0 +1,203 @@
+"""Browser tests for the public pages (docs/index.html and docs/3d.html), run in headless Chromium.
+
+What they check, in plain language:
+- Both pages load with no console errors, in light and dark mode, at desktop width and at phone width (390 px),
+  and never scroll sideways.
+- The 3D page draws real frames (the canvas is not blank) in each of the three views.
+- Moving to a fixed date shows the same Brent, WTI and tightness numbers that are stored in the database.
+- Dates before a series starts say "n/a" instead of inventing a value.
+- The shared state module (docs/js/state.js) clamps dates, round-trips the URL hash and plays back deterministically.
+
+The tests skip if Playwright or its Chromium is missing. Set QA_SHOTS=1 to also save screenshots in docs/qa/.
+Run: .venv/bin/python -m unittest tests.browser.test_pages
+"""
+import functools
+import http.server
+import io
+import os
+import re
+import threading
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+DOCS = ROOT / "docs"
+DB = ROOT / "crude_monitor.duckdb"
+QA = DOCS / "qa"
+SIZES = {"desktop": (1280, 860), "phone": (390, 844)}
+
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:                                    # pragma: no cover
+    sync_playwright = None
+
+
+class _Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+
+@unittest.skipIf(sync_playwright is None, "playwright not installed")
+class PageTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        handler = functools.partial(_Quiet, directory=str(DOCS))
+        cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        cls.base = "http://127.0.0.1:%d/" % cls.server.server_address[1]
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.pw = sync_playwright().start()
+        try:
+            cls.browser = cls.pw.chromium.launch(args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+        except Exception as e:                         # pragma: no cover
+            cls.pw.stop(); cls.server.shutdown()
+            raise unittest.SkipTest("Chromium not available: %s" % e)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close(); cls.pw.stop(); cls.server.shutdown(); cls.server.server_close()
+
+    def open(self, path, size="desktop", scheme="light"):
+        w, h = SIZES[size]
+        ctx = self.browser.new_context(viewport={"width": w, "height": h}, color_scheme=scheme, reduced_motion="reduce")
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        errors = []
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.goto(self.base + path)
+        page.wait_for_load_state("networkidle")
+        return page, errors
+
+    def open_3d(self, hash_="", **kw):
+        page, errors = self.open("3d.html" + hash_, **kw)
+        page.wait_for_function("window.__viz && window.__viz.frames() > 0", timeout=20000)
+        return page, errors
+
+    def shot(self, page, name):
+        if os.environ.get("QA_SHOTS") == "1":
+            QA.mkdir(exist_ok=True)
+            page.screenshot(path=str(QA / (name + ".png")))
+
+    def no_sideways_scroll(self, page):
+        over = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+        self.assertLessEqual(over, 1, "page scrolls sideways by %d px" % over)
+
+    def text(self, page, sel):
+        return page.inner_text(sel).strip()
+
+    # ---------- both pages, every size and theme ----------
+    def test_pages_load_clean_everywhere(self):
+        for path in ("index.html", "3d.html"):
+            for size in SIZES:
+                for scheme in ("light", "dark"):
+                    with self.subTest(page=path, size=size, scheme=scheme):
+                        if path == "3d.html":
+                            page, errors = self.open_3d(size=size, scheme=scheme)
+                        else:
+                            page, errors = self.open(path, size=size, scheme=scheme)
+                            page.wait_for_timeout(1500)        # Plotly charts draw after the JSON arrives
+                        self.assertEqual(errors, [])
+                        self.no_sideways_scroll(page)
+                        self.shot(page, "%s_%s_%s" % (path.split(".")[0], size, scheme))
+
+    # ---------- 3D page draws something in every view ----------
+    def test_each_view_draws_a_non_blank_canvas(self):
+        from PIL import Image
+        page, errors = self.open_3d("#v=hz&d=2026-04-17")
+        self.assertTrue(page.evaluate("window.__viz.webgl"), "WebGL renderer did not start")
+        for view in ("globe", "sky", "hz"):
+            with self.subTest(view=view):
+                before = page.evaluate("window.__viz.frames()")
+                page.click("#v" + {"globe": "Globe", "sky": "Sky", "hz": "Hz"}[view])
+                page.wait_for_function("window.__viz.frames() > %d" % before)
+                img = Image.open(io.BytesIO(page.locator("#gl").screenshot())).convert("RGB").resize((160, 100))
+                px = img.tobytes()
+                colours = len({px[i:i + 3] for i in range(0, len(px), 3)})
+                self.assertGreater(colours, 40, "canvas looks blank in %s view (%d colours)" % (view, colours))
+                self.assertIn("v=" + view, page.evaluate("location.hash"))
+        self.assertEqual(errors, [])
+
+    # ---------- readouts match the database ----------
+    @unittest.skipUnless(DB.exists(), "database not built")
+    def test_readouts_match_database(self):
+        import duckdb
+        con = duckdb.connect(str(DB), read_only=True)
+        self.addCleanup(con.close)
+        for iso in ("2008-07-03", "2020-04-21", "2026-04-17"):
+            with self.subTest(date=iso):
+                page, errors = self.open_3d("#v=globe&d=" + iso)
+                rows = dict(con.execute("SELECT benchmark, price FROM price_series WHERE price_date = ? "
+                                        "AND benchmark IN ('Brent', 'WTI')", [iso]).fetchall())
+                for bench, sel in (("Brent", "#rBrent"), ("WTI", "#rWti")):
+                    if bench in rows:
+                        self.assertEqual(self.text(page, sel), "%.2f" % rows[bench])
+                wk = con.execute("SELECT week_ending, tightness_score FROM weekly_reading WHERE week_ending <= ? "
+                                 "AND tightness_score IS NOT NULL ORDER BY week_ending DESC LIMIT 1", [iso]).fetchone()
+                self.assertIn(wk[0].isoformat(), self.text(page, "#rWeekH"))
+                score = int(wk[1])
+                shown = re.match(r"[+\u2212-]?\d", self.text(page, "#rScore")).group(0)
+                self.assertEqual(int(shown.replace("\u2212", "-")), score)
+                self.assertEqual(errors, [])
+
+    def test_dates_before_the_data_say_na(self):
+        page, errors = self.open_3d("#v=hz&d=1990-06-01")
+        self.assertIn("Jun 1, 1990", self.text(page, "#rDate"))
+        self.assertIn("scores start", self.text(page, "#rWeekH").lower())
+        self.assertEqual(self.text(page, "#rScore"), "n/a")
+        ship = self.text(page, "#rShip")
+        self.assertEqual(ship.count("n/a"), 6, ship)
+        self.assertIn("No ships drawn", self.text(page, "#hzNote"))
+        self.assertEqual(errors, [])
+
+    def test_opens_at_the_2026_disruption_and_plays(self):
+        page, errors = self.open_3d()
+        self.assertEqual(self.text(page, "#rDate"), "Feb 28, 2026")
+        start = page.evaluate("window.__viz.state.get().day")
+        page.click("#play")
+        page.wait_for_function("window.__viz.state.get().day > %d" % start, timeout=10000)
+        page.click("#play")
+        self.assertFalse(page.evaluate("window.__viz.state.get().playing"))
+        page.click("#jStart")
+        self.assertEqual(self.text(page, "#rDate"), "Jan 2, 1986")
+        self.assertEqual(page.evaluate("location.hash"), "#v=globe&d=1986-01-02")
+        self.assertEqual(errors, [])
+
+    # ---------- the shared state module ----------
+    def test_state_module(self):
+        page, errors = self.open_3d()
+        r = page.evaluate("""async () => {
+          const S = await import('./js/state.js');
+          const T0 = Date.parse('1986-01-02T00:00:00Z');
+          const isoOf = (i) => new Date(T0 + i * 864e5).toISOString().slice(0, 10);
+          const dayOf = (s) => Math.round((Date.parse(s + 'T00:00:00Z') - T0) / 864e5);
+          const N = 1000, st = S.createState({ day: 10 }, N), seen = [];
+          st.subscribe((s, changed) => seen.push(changed.join(',')));
+          st.set({ day: 5000 }); const clampedHigh = st.get().day;
+          st.set({ day: -3 }); const clampedLow = st.get().day;
+          st.set({ view: 'nonsense' }); const viewKept = st.get().view;
+          const nothing = st.set({ day: 0 }).length;
+          const hash = S.toHash({ view: 'hz', day: 400, keep2020: true }, isoOf);
+          const back = S.fromHash(hash, dayOf, N);
+          const bad = S.fromHash('#v=moon&d=1999-99', dayOf, N);
+          const run = () => { let s = { day: 0, speed: 35, playing: true }, c = 0;
+            for (const dt of [0.016, 0.017, 0.016, 0.5, 0.033]) { const a = S.advance(s, dt, c, N); s = { ...s, day: a.day, playing: a.playing }; c = a.carry; }
+            return s.day; };
+          const end = S.advance({ day: N - 3, speed: 365, playing: true }, 1, 0, N);
+          return { clampedHigh, clampedLow, viewKept, nothing, seen, hash, back, bad, run1: run(), run2: run(), end };
+        }""")
+        self.assertEqual(r["clampedHigh"], 999)
+        self.assertEqual(r["clampedLow"], 0)
+        self.assertEqual(r["viewKept"], "globe")
+        self.assertEqual(r["nothing"], 0)                 # setting the same value notifies nobody
+        self.assertEqual(r["seen"], ["day", "day"])
+        self.assertEqual(r["hash"], "#v=hz&d=1987-02-06&k=1")
+        self.assertEqual(r["back"], {"day": 400, "view": "hz", "keep2020": True})
+        self.assertEqual(r["bad"], {})
+        self.assertEqual(r["run1"], r["run2"])             # same frame times, same date
+        self.assertEqual(r["run1"], 20)                    # 0.582 s at 35 days a second = 20.37 days
+        self.assertEqual(r["end"], {"day": 999, "carry": 0, "playing": False})
+        self.assertEqual(errors, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

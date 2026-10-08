@@ -433,12 +433,12 @@ Without measured totals and a measured starting pattern, the model would draw ro
 
 ## 3D view
 
-`docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one time slider. See `3D_VIEW.md` for details.
+`docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one shared time state, from 1986 to today. It opens at the start of the 2026 Strait of Hormuz disruption. See `3D_VIEW.md` for details.
 - **Globe:** tanker traffic at six chokepoints as pillars, each with a ring at its own 2019 to 2025 median.
 - **Skyline:** thirty years of the weekly tightness score, with the 2020 switch.
 - **Hormuz close-up:** one moving ship per daily tanker transit on a real coastline.
 
-Data comes from `docs/data/viz3d.js`, written by `export_3d.py` under the same publishing rules as the showcase. `tools/check_lanes.py` confirms every drawn shipping lane stays in open water.
+Data comes from `docs/data/viz3d.js`, written by `export_3d.py` under the same publishing rules as the showcase. `tools/check_lanes.py` confirms every drawn shipping lane stays in open water. Browser tests (`tests/browser/`, Playwright) check both pages in light and dark mode at desktop and phone width, and check readouts against the database. To open the 3D page locally, serve `docs/` (`.venv/bin/python -m http.server 8503 -d docs`), because it uses ES modules.
 
 **What the 3D page does not claim**
 - Ship positions, routes and directions are a display choice. The data has daily counts, not vessel tracks or origins, so every ship has the same colour.
@@ -685,6 +685,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `export_3d.py` | Writes the 3D page data: publishable series, two versions of the score, coastline, schematic lanes |
 | `tools/check_lanes.py` | Confirms every schematic lane stays in open water |
 | `docs/3d.html` | The 3D page (Three.js 0.160.0 from jsDelivr) |
+| `docs/js/` | The 3D page code: shared state, data reader, one file per view |
+| `tests/browser/` | Playwright browser tests for both public pages |
 | `export_showcase.py` | Writes the public showcase data: publishable series and hand-checked events only |
 | `docs/index.html` | The static showcase page (GitHub Pages) |
 | `update.py` | Runs every loader in order, then the showcase export and the Monday read |

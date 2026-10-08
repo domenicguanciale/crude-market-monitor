@@ -140,7 +140,8 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `docs/3d.html` + `docs/data/viz3d.js` from `export_3d.py`. It has three views (globe, skyline, Hormuz close-up) on one date. `3D_VIEW.md` documents it. Same publishing rules as the showcase (`PUBLISHABLE` check, tested).
 - Honesty rules decided Oct 7: ships are one colour, because the data has no direction or origin. Routes are display weights, stated on the page. Facility pins are exported only for facilities tied to hand-checked events. The readout's Brent minus WTI is daily, labelled.
 - `Crude_Market_Monitor_3D.html` (single file, data inlined) is git-ignored because no script regenerates it.
-- The user's World Oil Simulation prompt (version 3D-2, milestones M0 to M10) is the next phase. M0 is the audit and plan; no new code until the user approves the plan.
+- The user's World Oil Simulation prompt (version 3D-2, milestones M0 to M10) is the current phase. The user said "run till completion" (Oct 7): commit and push each milestone, stop only for the hand-check.
+- M5 (Oct 7): `docs/js/state.js` is the single source of truth for date, view, speed and the 2020 switch; views subscribe and never hold their own date. Time axis 1986-01-02 to the latest data; opens at 2026-02-28. Export format 2 (`{s, v}` per series). Missing data shows "n/a". ES modules, so serve `docs/` over HTTP locally. Browser tests in `tests/browser/` (Playwright, Chromium); `QA_SHOTS=1` writes `docs/qa/`.
 
 ## Subagents and sources (M0.5, Oct 7, 2026)
 
