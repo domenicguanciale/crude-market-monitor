@@ -142,6 +142,7 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `Crude_Market_Monitor_3D.html` (single file, data inlined) is git-ignored because no script regenerates it.
 - The user's World Oil Simulation prompt (version 3D-2, milestones M0 to M10) is the current phase. The user said "run till completion" (Oct 7): commit and push each milestone, stop only for the hand-check.
 - M5 (Oct 7): `docs/js/state.js` is the single source of truth for date, view, speed and the 2020 switch; views subscribe and never hold their own date. Time axis 1986-01-02 to the latest data; opens at 2026-02-28. Export format 2 (`{s, v}` per series). Missing data shows "n/a". ES modules, so serve `docs/` over HTTP locally. Browser tests in `tests/browser/` (Playwright, Chromium); `QA_SHOTS=1` writes `docs/qa/`.
+- Resume point (Oct 7, end of day): M0.5 to M5 done and pushed; war rows W01 to W14 source-checked and corrected (docs/checks/source_check_war_rows_2026-10-07.md), hand_checked still blank. **Next: M6** (price terrain with negative-WTI trench and spike pins; volatility terrain with a volatility / price / tightness switch; world flows from Tier A and B only, lazy-loaded). Spike pins show rule-detected facts only; explanation text appears only once the user hand-checks it. The user asked to **stop after M6** and wait.
 
 ## Subagents and sources (M0.5, Oct 7, 2026)
 
