@@ -38,6 +38,12 @@ DATASETS = [
          terms_note="Public market data, no key; redistribution terms not confirmed", publishable=False, accessed_date=D(2026, 10, 5)),
     dict(source_id="ds-kalshi", publisher="Kalshi", url="https://docs.kalshi.com/",
          terms_note="Public market data, no key; redistribution terms not confirmed", publishable=False, accessed_date=D(2026, 10, 5)),
+    dict(source_id="ds-eia-impcus", publisher="U.S. Energy Information Administration", url="https://www.eia.gov/opendata/browser/petroleum/move/impcus",
+         terms_note="US government data, public domain", publishable=True, accessed_date=D(2026, 10, 7),
+         data_quality="Monthly US crude imports by origin (Tier A); published with about a two-month lag and revised; regional totals dropped"),
+    dict(source_id="ds-eia-intl", publisher="U.S. Energy Information Administration", url="https://www.eia.gov/opendata/browser/international",
+         terms_note="US government data, public domain", publishable=True, accessed_date=D(2026, 10, 7),
+         data_quality="Monthly crude production by country (Tier B), to June 2026; estimates revised later; no exports by country, imports annual to 2020 only"),
     dict(source_id="ds-naturalearth", publisher="Natural Earth", url="https://www.naturalearthdata.com/about/terms-of-use/",
          terms_note="Public domain", publishable=True, accessed_date=D(2026, 10, 7)),
 ]
@@ -45,11 +51,13 @@ DATASETS = [
 
 def store(con):
     df = pd.DataFrame(DATASETS)
-    con.execute("""INSERT INTO source (source_id, event_id, publisher, url, published_date, accessed_date, terms_note, publishable, kind)
-                   SELECT source_id, NULL, publisher, url, NULL, accessed_date, terms_note, publishable, 'dataset' FROM df
+    if "data_quality" not in df:
+        df["data_quality"] = None
+    con.execute("""INSERT INTO source (source_id, event_id, publisher, url, published_date, accessed_date, terms_note, publishable, kind, data_quality)
+                   SELECT source_id, NULL, publisher, url, NULL, accessed_date, terms_note, publishable, 'dataset', data_quality FROM df
                    ON CONFLICT (source_id) DO UPDATE SET publisher = EXCLUDED.publisher, url = EXCLUDED.url,
                        accessed_date = EXCLUDED.accessed_date, terms_note = EXCLUDED.terms_note,
-                       publishable = EXCLUDED.publishable, kind = 'dataset'""")
+                       publishable = EXCLUDED.publishable, kind = 'dataset', data_quality = EXCLUDED.data_quality""")
 
 
 def main():

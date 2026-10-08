@@ -21,6 +21,7 @@ STEPS = [
     ("FRED daily series (needs FRED_API_KEY)", ["fred.py"]),
     ("Geopolitical Risk Index", ["gpr.py"]),
     ("Chokepoint transits (IMF PortWatch)", ["chokepoints.py"]),
+    ("Physical flows: US imports by origin, production by country", ["flows.py"]),
     ("Prediction markets", ["fetch_markets.py"]),
     ("Dataset source registry", ["sources.py"]),
     ("Event tables", ["events.py"]),

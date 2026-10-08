@@ -11,6 +11,9 @@ The ontology is the list of things this project tracks, what we record about eac
 | Price series | `price_series` | Benchmark (WTI, Brent, WTI future 1, WTI future 4), date, price | Disruption events (through price reactions) |
 | Weekly reading | `weekly_reading` | Week ending, crude stocks, distillate stocks, utilization, production, exports, SPR stocks, tightness score, spread | Disruption events in that week |
 | Source | `source` | Publisher, link, published date, accessed date, terms note, publishable flag, kind (dataset or citation) | Disruption events (citations); every data series (dataset rows from `sources.py`) |
+| Country | `country` | ISO code, name, UN region and subregion, label point (Natural Earth) | Trade flows, production |
+| Trade flow | `trade_flow` | Month, exporter, importer, product, tier (A measured, C modeled), thousand b/d, source, revision flag and previous value | Country (twice) |
+| Production by country | `production_by_country` | Month, country, crude production in thousand b/d, source, revision flag and previous value | Country |
 | Retail fuel price | `retail_fuel_price` | Product (gasoline, diesel), week date, price in $/gallon (EIA) | Weekly reading by date |
 | Prediction market | `prediction_market` | Platform (Polymarket, Kalshi), question, outcome, topic (gulf_conflict, oil_price), open and close dates, status, result, all-time volume | Market readings; disruption events by date (item 4) |
 | Trader positioning | `trader_positioning` | Report date (Tuesday measured), released (Friday published), open interest, large speculator long and short, commercial and small trader positions, net speculative position; from June 2006 also managed money, producer/merchant and swap dealer positions (disaggregated report) | Weekly reading (same week) |

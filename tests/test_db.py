@@ -12,7 +12,7 @@ class TestSchema(unittest.TestCase):
             "SELECT table_name FROM information_schema.tables").fetchall()}
         self.assertEqual(tables, {"facility", "disruption_event", "source",
                                   "price_series", "weekly_reading",
-                                  "prediction_market", "market_reading", "trader_positioning", "daily_indicator", "staged_event", "chokepoint_transit", "retail_fuel_price", "spike"})
+                                  "prediction_market", "market_reading", "trader_positioning", "daily_indicator", "staged_event", "chokepoint_transit", "retail_fuel_price", "spike", "country", "trade_flow", "production_by_country"})
 
     def test_price_cannot_repeat_for_same_day(self):
         self.con.execute("INSERT INTO price_series VALUES ('WTI', '2026-09-29', 96.16)")

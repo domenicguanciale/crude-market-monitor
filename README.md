@@ -403,6 +403,27 @@ Three series added for the simulation, each confirmed on its live source and lis
 - **The widest Brent premium over WTI** was $37.62 on October 2, 2026, on a Brent print that could not be confirmed in news reports.
 - Every spike is **not yet hand-checked**, and no cause is assigned by the rules.
 
+## Physical flows: who produced, who sold to the US (World Oil Simulation, M4)
+
+`flows.py` loads two measured tiers from EIA, plus country label points from Natural Earth (public domain):
+- **Tier A, measured bilateral:** US crude imports by country of origin, monthly from 2010 to July 2026, 60 origins.
+- **Tier B, measured country totals:** crude production for 218 countries, monthly from 2010 to June 2026.
+- **Revisions are kept:** when EIA revises a month, the earlier value stays in `previous_volume`.
+
+| Crude production, thousand b/d (EIA) | Feb 2026 | Apr 2026 | Jun 2026 |
+|---|---|---|---|
+| Saudi Arabia | 10,760 | 6,600 | 7,290 |
+| Iraq | 4,461 | 1,420 | 1,945 |
+| UAE | 4,032 | 2,570 | 4,170 |
+| Kuwait | 2,660 | 570 | 1,390 |
+| Qatar | 1,263 | 190 | 475 |
+
+**What is not shown, and why.** The brief's Tier C, modeled worldwide trade arcs, is built (`ipf.py`, iterative proportional fitting, tested with a worked example in METHODS.md section 12) but **not published**:
+- EIA publishes other countries' crude imports only annually and only to 2020, and no exports by country.
+- UN Comtrade's bilateral data may not be republished, and JODI's terms are not confirmed.
+
+Without measured totals and a measured starting pattern, the model would draw routes the data does not show. The page shows measured flows and production instead, and states the gap.
+
 ## Spike explanations (World Oil Simulation, M3)
 
 `data/spikes_explained.csv` holds 12 sourced, neutral explanations for the candidate episodes in the brief: 1986, 1990 to 1991, 1997 to 1998, 2008, 2011, 2014 to 2016, Abqaiq 2019, April 2020, 2022, the Red Sea from late 2023, June 2025 and the 2026 Strait of Hormuz disruption. Each claim is attributed to its source (mostly EIA, plus the Federal Reserve, IMF, IEA, CFTC and DOE). `explain_spikes.py` links each episode to the spikes the rules found inside its window (278 spikes) and adds context from the database: prices, peak volatility, the tightness score and futures curve before it began, positioning, and tanker transits where PortWatch covers the dates. Full write-up: [docs/SPIKE_EXPLANATIONS.md](docs/SPIKE_EXPLANATIONS.md).
@@ -475,6 +496,29 @@ erDiagram
         float value
     }
 
+    COUNTRY ||--o{ TRADE_FLOW : "exports or imports"
+    COUNTRY ||--o{ PRODUCTION_BY_COUNTRY : "produces"
+
+    COUNTRY {
+        string iso3 PK
+        string name
+        string region
+        float label_lat
+        float label_lon
+    }
+    TRADE_FLOW {
+        date period PK
+        string exporter PK
+        string importer PK
+        string tier PK "A measured, C modeled"
+        float volume_kbd
+        float previous_volume "kept on revision"
+    }
+    PRODUCTION_BY_COUNTRY {
+        date period PK
+        string country PK
+        float volume_kbd
+    }
     RETAIL_FUEL_PRICE {
         string product PK "gasoline or diesel"
         date week_date PK
@@ -630,6 +674,8 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
+| `flows.py` | Countries, Tier A US imports by origin, Tier B production by country (EIA); keeps revisions |
+| `ipf.py` | Iterative proportional fitting for the modeled Tier C allocation (not published; see M4 section) |
 | `explain_spikes.py` | Links sourced episode explanations to the spike catalog, with database context |
 | `data/spikes_explained.csv` | The 12 episode explanations, with sources and hand-check status |
 | `spikes.py` | Spike catalog: shocks, surges, crashes, drawdowns, volatility, spread blowouts, sensitivity check |

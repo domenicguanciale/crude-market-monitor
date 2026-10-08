@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS source (
     accessed_date   DATE,             -- when access and terms were last confirmed (M1)
     terms_note      VARCHAR,          -- short summary of the terms of use
     publishable     BOOLEAN,          -- may it appear on the public pages?
-    kind            VARCHAR           -- 'dataset' (a data series) or 'citation' (backs one event)
+    kind            VARCHAR,          -- 'dataset' (a data series) or 'citation' (backs one event)
+    data_quality    VARCHAR           -- known limits of the series (lags, revisions, coverage)
 );
 
 -- Price series: daily spot prices, one row per benchmark per day
@@ -202,6 +203,45 @@ CREATE TABLE IF NOT EXISTS spike (
     hand_checked    BOOLEAN DEFAULT FALSE
 );
 
+-- Country: one country, for maps and trade tables (M4). Label points and regions from Natural Earth (public domain).
+CREATE TABLE IF NOT EXISTS country (
+    iso3            VARCHAR PRIMARY KEY,   -- three-letter code (Natural Earth ADM0_A3; matches EIA)
+    name            VARCHAR,
+    region          VARCHAR,               -- UN region
+    subregion       VARCHAR,
+    label_lat       DOUBLE,
+    label_lon       DOUBLE
+);
+
+-- Trade flow: crude oil moving from one exporter to one importer in one month (M4).
+-- Tier A = measured bilateral (EIA US imports by origin). Tier C = modeled allocation (ipf.py), never mixed
+-- into tier A rows. Revisions keep the earlier value in previous_volume.
+CREATE TABLE IF NOT EXISTS trade_flow (
+    period          DATE    NOT NULL,      -- first day of the month
+    exporter        VARCHAR NOT NULL,      -- iso3
+    importer        VARCHAR NOT NULL,      -- iso3
+    product         VARCHAR NOT NULL,      -- 'crude'
+    tier            VARCHAR NOT NULL,      -- 'A' measured, 'C' modeled
+    volume_kbd      DOUBLE,                -- thousand barrels per day
+    source_id       VARCHAR,
+    fetched         DATE,
+    revised         BOOLEAN DEFAULT FALSE,
+    previous_volume DOUBLE,
+    PRIMARY KEY (period, exporter, importer, product, tier)
+);
+
+-- Production by country: monthly crude oil production, including lease condensate (EIA international, M4).
+CREATE TABLE IF NOT EXISTS production_by_country (
+    period          DATE    NOT NULL,
+    country         VARCHAR NOT NULL,      -- iso3
+    volume_kbd      DOUBLE,
+    source_id       VARCHAR,
+    fetched         DATE,
+    revised         BOOLEAN DEFAULT FALSE,
+    previous_volume DOUBLE,
+    PRIMARY KEY (period, country)
+);
+
 -- Retail fuel price: one US weekly average retail price for one product (EIA, M1).
 CREATE TABLE IF NOT EXISTS retail_fuel_price (
     product         VARCHAR NOT NULL,     -- 'gasoline' (regular, all formulations) or 'diesel' (No. 2)
@@ -245,6 +285,7 @@ UPGRADES = [
     "ALTER TABLE source ADD COLUMN IF NOT EXISTS terms_note VARCHAR",
     "ALTER TABLE source ADD COLUMN IF NOT EXISTS publishable BOOLEAN",
     "ALTER TABLE source ADD COLUMN IF NOT EXISTS kind VARCHAR",
+    "ALTER TABLE source ADD COLUMN IF NOT EXISTS data_quality VARCHAR",
 ] + [f"ALTER TABLE trader_positioning ADD COLUMN IF NOT EXISTS {c} DOUBLE" for c in
      ["mm_long", "mm_short", "mm_net", "mm_net_pct_oi", "prod_merc_long", "prod_merc_short", "swap_long", "swap_short"]]
 

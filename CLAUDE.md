@@ -170,6 +170,12 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - `explain_spikes.py` links spikes by `extreme_date` within each window (`spike.cause_note`, `source_ids` as `spk-Sxx-n` citation rows) and writes docs/SPIKE_EXPLANATIONS.md with database context. It runs after spikes.py, because spikes.py rebuilds the table.
 - Brent figures from EIA articles are often front-month futures, not the project's daily spot. Each note says which.
 
+## M4 physical flows (Oct 7, 2026)
+
+- `flows.py`: Tier A from `petroleum/move/impcus` (product EPC0, series ending in 2 = thousand b/d; drop area-name values that are not 3-letter codes, which are regional totals). Tier B from `international` (product 57, activity 1, unit TBPD). Natural Earth countries use ISO_A3, falling back to ADM0_A3 when it is '-99'; small countries come from `data/ne_label_points_extra.csv` (tools/make_label_points.py).
+- Revisions: `upsert_with_revisions` keeps the earlier value in `previous_volume` and sets `revised`. Never overwrite measured data with modeled data.
+- **Tier C (ipf.py) is built and tested but not published.** There are no publishable monthly totals for importers or exporters (EIA imports are annual to 2020; no exports) and no publishable prior (Comtrade: UN copyright; JODI: terms unknown). Do not draw modeled worldwide arcs on the public page without the user's decision and a defensible prior.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`

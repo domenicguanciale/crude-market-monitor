@@ -23,14 +23,14 @@ Every data source the project uses or has checked, with its terms and whether it
 
 ## Checked for the World Oil Simulation
 
-In use from M1: the dollar index, EIA retail gasoline and diesel, and the CFTC disaggregated report. The others are planned for M4 (trade flows) or kept local.
+In use from M1: the dollar index, EIA retail gasoline and diesel, and the CFTC disaggregated report. In use from M4: EIA US imports by origin (Tier A) and EIA international production by country (Tier B), plus Natural Earth label points. UN Comtrade and JODI stay local and unused: without them, modeled worldwide arcs (Tier C) are not published.
 
 | Source | URL | What it would provide | Terms summary | Public | Checked |
 |---|---|---|---|---|---|
 | FRED, Nominal Broad U.S. Dollar Index (`DTWEXBGS`) | https://fred.stlouisfed.org/series/DTWEXBGS | Daily dollar index from 2006 | Federal Reserve H.10, no third-party copyright notice in the series notes | Yes | Oct 7, 2026 |
 | EIA retail gasoline (`EMM_EPMR_PTE_NUS_DPG`) and diesel (`EMD_EPD2D_PTE_NUS_DPG`) | route `petroleum/pri/gnd` | Weekly US retail prices from 1990 and 1994 | EIA, public domain | Yes | Oct 7, 2026 |
-| EIA US imports by country of origin | route `petroleum/move/impcus` | Monthly US crude imports by origin (Tier A, measured) | EIA, public domain | Yes | Oct 7, 2026 |
-| EIA international data | route `international` | Monthly production, exports and imports by country, to June 2026 (Tier B) | EIA, public domain | Yes | Oct 7, 2026 |
+| EIA US imports by country of origin (in use from M4, https://www.eia.gov/opendata/browser/petroleum/move/impcus) | route `petroleum/move/impcus` | Monthly US crude imports by origin (Tier A, measured) | EIA, public domain | Yes | Oct 7, 2026 |
+| EIA international data (in use from M4, https://www.eia.gov/opendata/browser/international) | route `international` | Monthly production, exports and imports by country, to June 2026 (Tier B) | EIA, public domain | Yes | Oct 7, 2026 |
 | CFTC Disaggregated Futures Only (`72hh-3qpy`) | https://publicreporting.cftc.gov/ | Weekly WTI managed money, swap dealer, producer positions from June 2006 | US government, public domain, no key | Yes | Oct 7, 2026 |
 | IEA reports and commentaries | https://www.iea.org/help-centre/usage-and-rights | Cited figures such as Hormuz flows | Most text and figures CC BY 4.0. Datasets, data explorers and the Oil Market Report are excluded | Cited numbers only | Oct 7, 2026 |
 | UN Comtrade (HS 2709) | https://comtrade.un.org/licenseagreement.html | Bilateral crude trade between reporting countries | Copyright United Nations; "internal use only"; re-dissemination needs written permission from UNSD. Free key for the API | **No** (local only) | Oct 7, 2026 |

@@ -201,6 +201,28 @@ The biggest crashes and surges are found by rules in code (`spikes.py`), not pic
 
 **What 2026 looks like against history** (from `docs/SPIKES.md`, Oct 7, 2026): Brent had 16 days with moves of 8% or more in 2026, more than any year except 2020. Brent's 20-day realized volatility peaked at 112% annualized on April 17, 2026, higher than 99.3% of all trading days since 1987. These are measured moves; causes are not assigned by the rules.
 
+## 12. Physical flows and the modeled allocation (World Oil Simulation, M4)
+
+**Three tiers, labelled on the page.**
+- **Tier A, measured bilateral flows.** EIA's US crude imports by country of origin, monthly, in thousand barrels per day (`trade_flow`, tier A). Rows that are regional totals are dropped.
+- **Tier B, measured country totals.** EIA's monthly crude oil production by country, including lease condensate (`production_by_country`).
+- **Tier C, modeled allocation.** Iterative proportional fitting (`ipf.py`) balances a table of flows so each exporter's row adds up to its total and each importer's column to its total, starting from a prior pattern of who trades with whom. Cells that are zero in the prior stay zero.
+
+**Worked example.** Two exporters (A, B) and two importers (X, Y). Last year's flows are the prior: A to X 60, A to Y 40, B to X 20, B to Y 80. This year, A exports 120 and B 80; X imports 90 and Y 110.
+1. Scale each row to its total. A's row is multiplied by 120/100, giving 72 and 48; B's by 80/100, giving 16 and 64. The columns now add to 88 and 112, not 90 and 110.
+2. Scale each column to its total. X's column is multiplied by 90/88 and Y's by 110/112, giving 73.64, 47.14, 16.36 and 62.86. Now the rows are slightly off (120.78 and 79.22).
+3. Repeat. After 6 rounds every row and column matches within a millionth: A to X 73.38, A to Y 46.62, B to X 16.62, B to Y 63.38.
+
+The test suite checks this example and that rows and columns reconcile within the tolerance.
+
+**Why no Tier C arcs are published yet.** The method needs two things that publishable 2026 data does not provide:
+- **Every importer's and exporter's monthly totals.** EIA publishes other countries' crude imports only annually and only to 2020, and no exports by country.
+- **A measured prior for the rest of the world.** UN Comtrade's bilateral data may not be republished, and JODI's terms are not confirmed.
+
+With no prior, the method spreads each exporter's oil across importers in proportion to their size, which can draw routes that do not exist. So the page shows measured flows (US imports) and measured production, and states the gap. Tier C will run once a defensible prior and totals are available.
+
+**One-minute answer: "What are the modeled arcs?"** They are not measured trade. IPF takes each country's total exports and imports and a starting guess of who trades with whom, and adjusts the guess until every total matches. The result is only as good as the starting guess, and for 2026 I could not get a publishable one, so I publish the measured US flows and production instead of pretending to know the rest.
+
 ## Sources
 
 - EIA, Weekly Petroleum Status Report, Appendix B: https://www.eia.gov/petroleum/supply/weekly/pdf/appendixb.pdf
