@@ -14,16 +14,19 @@ import time
 STEPS = [
     ("EIA weekly data and prices", ["fetch.py"]),
     ("Five-year comparison, score, spread, futures curve", ["calculate.py"]),
-    ("CFTC positioning", ["cot.py"]),
+    ("CFTC positioning (legacy and disaggregated)", ["cot.py"]),
+    ("US retail gasoline and diesel", ["retail_fuel.py"]),
     ("FRED daily series (needs FRED_API_KEY)", ["fred.py"]),
     ("Geopolitical Risk Index", ["gpr.py"]),
     ("Chokepoint transits (IMF PortWatch)", ["chokepoints.py"]),
     ("Prediction markets", ["fetch_markets.py"]),
+    ("Dataset source registry", ["sources.py"]),
     ("Event tables", ["events.py"]),
     ("Showcase data (publishable series, hand-checked events)", ["export_showcase.py"]),
     ("3D page data", ["export_3d.py"]),
     ("3D lanes stay in open water", ["tools/check_lanes.py"]),
     ("Monday read", ["monday_summary.py"]),
+    ("Reconcile spot numbers with their sources", ["tools/reconcile.py"]),
 ]
 
 

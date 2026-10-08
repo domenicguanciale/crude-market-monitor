@@ -23,6 +23,20 @@ import db
 from score import week_ending_of
 
 URL = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
+# Disaggregated Futures Only report, confirmed Oct 7, 2026: same WTI code, from June 13, 2006, no key.
+# Field names checked on the live service (the CFTC spells two of them irregularly, kept as is).
+DISAGG_URL = "https://publicreporting.cftc.gov/resource/72hh-3qpy.json"
+DISAGG_FIELDS = {
+    "report_date_as_yyyy_mm_dd": "report_date",
+    "m_money_positions_long_all": "mm_long",
+    "m_money_positions_short_all": "mm_short",
+    "prod_merc_positions_long": "prod_merc_long",
+    "prod_merc_positions_short": "prod_merc_short",
+    "swap_positions_long_all": "swap_long",
+    "swap__positions_short_all": "swap_short",
+}
+DISAGG_COLUMNS = ["mm_long", "mm_short", "mm_net", "mm_net_pct_oi", "prod_merc_long", "prod_merc_short",
+                  "swap_long", "swap_short"]
 WTI_CODE = "067651"
 MIN_RELEASE_LAG_DAYS = 2   # positions are published at least 2 days after they are measured
 
@@ -76,19 +90,49 @@ def parse(rows):
     return df[COLUMNS].drop_duplicates("report_date").sort_values("report_date").reset_index(drop=True)
 
 
+def fetch_disagg_rows():
+    params = {"cftc_contract_market_code": WTI_CODE, "$select": ",".join(DISAGG_FIELDS),
+              "$order": "report_date_as_yyyy_mm_dd", "$limit": 50000}
+    resp = requests.get(DISAGG_URL, params=params, timeout=60)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def parse_disagg(rows):
+    """Disaggregated rows -> managed money, producer/merchant and swap dealer positions by report date."""
+    df = pd.DataFrame(rows).rename(columns=DISAGG_FIELDS)
+    df["report_date"] = pd.to_datetime(df["report_date"]).dt.date
+    for c in DISAGG_FIELDS.values():
+        if c != "report_date":
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    df["mm_net"] = df["mm_long"] - df["mm_short"]
+    return df.drop_duplicates("report_date")
+
+
+def combine(legacy, disagg):
+    """Add the disaggregated columns to the legacy rows (same report dates). Before June 2006 they stay empty."""
+    out = legacy.merge(disagg[["report_date"] + [c for c in DISAGG_COLUMNS if c != "mm_net_pct_oi"]],
+                       on="report_date", how="left")
+    out["mm_net_pct_oi"] = out["mm_net"] / out["open_interest"]
+    return out
+
+
 def store(con, df):
     """Add new reports and update existing ones. CFTC keeps the full history, nothing is deleted."""
-    con.execute(f"INSERT OR REPLACE INTO trader_positioning SELECT {', '.join(COLUMNS)} FROM df")
+    cols = COLUMNS + [c for c in DISAGG_COLUMNS if c in df.columns]
+    con.execute(f"INSERT OR REPLACE INTO trader_positioning ({', '.join(cols)}) SELECT {', '.join(cols)} FROM df")
 
 
 def main():
-    df = parse(fetch_rows())
+    df = combine(parse(fetch_rows()), parse_disagg(fetch_disagg_rows()))
     con = db.connect()
     store(con, df)
     print(f"Stored {len(df)} weekly WTI reports, {df.report_date.min()} to {df.report_date.max()}")
     last = df.iloc[-1]
     print(f"Latest (positions {last.report_date}, released {last.released}): large speculators net "
           f"{last.spec_net:+,.0f} contracts ({last.spec_net_pct_oi:+.1%} of open interest)")
+    print(f"Managed money (disaggregated, from {df.dropna(subset=['mm_net']).report_date.min()}): net "
+          f"{last.mm_net:+,.0f} contracts ({last.mm_net_pct_oi:+.1%} of open interest)")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ class TestShowcaseRules(unittest.TestCase):
         con.execute("INSERT INTO facility (facility_id, name, latitude, longitude) VALUES ('hz', 'Strait of Hormuz', 26.3, 56.9)")
         con.execute("""INSERT INTO disruption_event (event_id, event_name, event_date, facility_id, hand_checked)
                        VALUES ('W01', 'checked', '2026-02-28', 'hz', TRUE), ('W02', 'unchecked', '2026-03-02', 'hz', FALSE)""")
-        con.execute("INSERT INTO source VALUES ('W01-S1', 'W01', 'EIA', 'https://www.eia.gov/x', NULL)")
+        con.execute("INSERT INTO source (source_id, event_id, publisher, url) VALUES ('W01-S1', 'W01', 'EIA', 'https://www.eia.gov/x')")
         events, unchecked = ex.checked_events(con)
         self.assertEqual([e["id"] for e in events], ["W01"])
         self.assertEqual(unchecked, 1)

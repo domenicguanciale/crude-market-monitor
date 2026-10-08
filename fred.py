@@ -32,6 +32,11 @@ INDICATORS = {
                "title": "10-Year Treasury Constant Maturity Yield",
                "owner": "Board of Governors of the Federal Reserve System (H.15, public domain)",
                "publishable": True},
+    # M1: the dollar, for the money layer of the World Oil Simulation
+    "USD_BROAD": {"fred_id": "DTWEXBGS", "unit": "index (Jan 2006 = 100)",
+                  "title": "Nominal Broad U.S. Dollar Index",
+                  "owner": "Board of Governors of the Federal Reserve System (H.10, no third-party copyright notice)",
+                  "publishable": True},
     "HY_SPREAD": {"fred_id": "BAMLH0A0HYM2", "unit": "percentage points",
                   "title": "ICE BofA US High Yield Index Option-Adjusted Spread",
                   "owner": "ICE Data Indices (copyrighted; reproduction prohibited without permission). "

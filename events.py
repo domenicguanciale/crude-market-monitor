@@ -139,7 +139,8 @@ def store(con, events, facilities, sources):
                               facility_id, week_ending, hand_checked, episode FROM ev""")
     if sources:
         src = pd.DataFrame(sources)
-        con.execute("INSERT INTO source SELECT source_id, event_id, publisher, url, published_date FROM src")
+        con.execute("INSERT INTO source (source_id, event_id, publisher, url, published_date, kind) "
+                    "SELECT source_id, event_id, publisher, url, published_date, 'citation' FROM src")
     con.execute("COMMIT")
 
 

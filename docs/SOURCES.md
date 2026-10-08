@@ -21,7 +21,9 @@ Every data source the project uses or has checked, with its terms and whether it
 | Natural Earth (via the world-atlas package) | https://www.naturalearthdata.com/about/terms-of-use/ | Land outlines for the globe and the Gulf coastline | Public domain; crediting is optional | "Made with Natural Earth" | Yes | Oct 7, 2026 |
 | News agencies and official bodies cited per event row | Each row of `data/iran_war_2026.csv` and `EVENTS_STARTER.csv` | Dates, volumes, prices for disruption events | Facts cited with links; no article text reproduced. Rows are published only after hand-checking | Per row | Only hand-checked rows | Oct 5, 2026 |
 
-## Checked for the next phase (World Oil Simulation, M1 onward)
+## Checked for the World Oil Simulation
+
+In use from M1: the dollar index, EIA retail gasoline and diesel, and the CFTC disaggregated report. The others are planned for M4 (trade flows) or kept local.
 
 | Source | URL | What it would provide | Terms summary | Public | Checked |
 |---|---|---|---|---|---|

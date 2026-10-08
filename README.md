@@ -377,6 +377,22 @@ This describes positioning. It is not a trading signal.
 
 Tested in light and dark mode and at phone width (no sideways scrolling), with the replay, the event zoom and the map exercised.
 
+## Money, fuel and positioning layers (World Oil Simulation, M1)
+
+Three series added for the simulation, each confirmed on its live source and listed in `docs/SOURCES.md`:
+
+| Series | Source | Coverage | Public |
+|---|---|---|---|
+| Nominal Broad U.S. Dollar Index | FRED `DTWEXBGS` (Federal Reserve H.10) | Daily, 2006 to today | Yes |
+| US retail regular gasoline and No. 2 diesel | EIA `EMM_EPMR_PTE_NUS_DPG`, `EMD_EPD2D_PTE_NUS_DPG` | Weekly, from 1990 and 1994 | Yes |
+| Managed money, producer/merchant and swap dealer positions in WTI | CFTC Disaggregated report (`72hh-3qpy`) | Weekly, from June 2006 | Yes |
+
+- **Managed money** (hedge funds and commodity trading advisers) is a subset of the legacy report's large speculators. It moves the same way at a lower level: for example 4.1% net long of open interest in 2026, against 7.0% for all large speculators.
+- **Source registry.** `sources.py` stores every dataset as a row in `source`, with its accessed date, terms note and publishable flag, so each public number can point to a source.
+- **Reconciliation.** `tools/reconcile.py` queries ten numbers live at their original source and compares them with the database and the page; all ten match ([docs/RECONCILIATION.md](docs/RECONCILIATION.md)).
+
+**Brent at the end of the first quarter of 2026.** EIA reported Brent **front-month futures** finishing the quarter at $118; this project's Brent is EIA's daily **spot** price, $126.69 on March 31. Both are right; captions must say which one they quote.
+
 ## 3D view
 
 `docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one time slider. See `3D_VIEW.md` for details.
@@ -421,10 +437,12 @@ erDiagram
     }
     SOURCE {
         string source_id PK
-        string event_id FK
+        string event_id FK "empty for datasets"
         string publisher
         string url
-        date published_date
+        date accessed_date
+        bool publishable
+        string kind "dataset or citation"
     }
     PRICE_SERIES {
         string benchmark PK "WTI, Brent, WTI future 1 or 4"
@@ -440,6 +458,11 @@ erDiagram
         float value
     }
 
+    RETAIL_FUEL_PRICE {
+        string product PK "gasoline or diesel"
+        date week_date PK
+        float price "dollars per gallon"
+    }
     TRADER_POSITIONING {
         date report_date PK "Tuesday measured"
         date released "Friday published"
@@ -449,6 +472,7 @@ erDiagram
         float spec_short
         float spec_net "calculated"
         float spec_net_pct_oi "calculated"
+        float mm_net "managed money, from 2006"
     }
 
     PREDICTION_MARKET {
@@ -556,6 +580,7 @@ Create a file named `.env` in the project folder with the lines `EIA_API_KEY=you
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 .venv/bin/python update.py         # or: refresh everything above in order, then rebuild the showcase
 .venv/bin/python export_3d.py      # 3D page data; then tools/check_lanes.py
+.venv/bin/python tools/reconcile.py  # spot-check numbers against their live sources
 ```
 
 Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
@@ -588,6 +613,9 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
+| `retail_fuel.py` | US weekly retail gasoline and diesel prices (EIA) |
+| `sources.py` | Stores every dataset source with its terms and publishable flag |
+| `tools/reconcile.py` | Checks spot numbers live at the source against the database and the page |
 | `export_3d.py` | Writes the 3D page data: publishable series, two versions of the score, coastline, schematic lanes |
 | `tools/check_lanes.py` | Confirms every schematic lane stays in open water |
 | `docs/3d.html` | The 3D page (Three.js 0.160.0 from jsDelivr) |

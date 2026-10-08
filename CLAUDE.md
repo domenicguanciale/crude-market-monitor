@@ -149,6 +149,14 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - Size budget for the public first-load data: about 1.5 MB compressed (prompt version 3D-2, section 8).
 - Approved plan (Oct 7): M0.5 agents and SOURCES; M1 dollar index, retail fuel and CFTC disaggregated; M2 spike catalog; M3 spike explanations and hand-check; M4 trade flows; M5 shared state and Playwright; M6 price and volatility terrain; M7 2D dashboard; M8 Hormuz upgrade, compare and tours; M9 scenario explorer (history only, kept, built last); M10 QA and publish. Stop after each milestone.
 
+## M1 data (Oct 7, 2026)
+
+- `USD_BROAD` (FRED DTWEXBGS, publishable) in `daily_indicator`. `retail_fuel_price` from EIA `petroleum/pri/gnd`, weekly (gasoline `EMM_EPMR_PTE_NUS_DPG`, diesel `EMD_EPD2D_PTE_NUS_DPG`). `check_routes.DAILY_ROUTES` lists the routes queried daily; everything else is weekly.
+- `trader_positioning` gains the disaggregated report (`72hh-3qpy`, June 2006 onward): `mm_long`, `mm_short`, `mm_net`, `mm_net_pct_oi`, producer/merchant and swap columns. The field names include the CFTC's irregular `swap__positions_short_all` and `prod_merc_positions_long` (no `_all`).
+- `source` has `accessed_date`, `terms_note`, `publishable` and `kind`. `sources.py` writes dataset rows (`ds-...`); events.py and news_reader write `citation` rows. Always INSERT into `source` with an explicit column list.
+- `tools/reconcile.py` checks live source against database against page and writes docs/RECONCILIATION.md (10 of 10 matched).
+- Brent at the end of 1Q26: EIA's $118 is **front-month futures**; the project's Brent is EIA **spot** ($126.69 on Mar 31). Captions must say which.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`

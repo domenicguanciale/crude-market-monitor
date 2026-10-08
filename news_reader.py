@@ -223,7 +223,7 @@ def approve(con, staged_id, confirm, event_id=None, episode=None, checked=False)
                 [event_id, row["event_name"], row["event_date"], row["cause"], row["capacity_offline_bpd"],
                  {"yes": True, "no": False}.get(row["physical_supply_lost"]), facility_id,
                  week_ending_of(row["event_date"]), checked, episode])
-    con.execute("INSERT INTO source (source_id, event_id, publisher, url, published_date) VALUES (?, ?, ?, ?, ?)",
+    con.execute("INSERT INTO source (source_id, event_id, publisher, url, published_date, kind) VALUES (?, ?, ?, ?, ?, 'citation')",
                 [f"{event_id}-S1", event_id, row["article_publisher"], row["article_url"], row["article_published"]])
     con.execute("UPDATE staged_event SET status = 'approved', event_id = ?, reviewed_at = ? WHERE staged_id = ?",
                 [event_id, dt.datetime.now(dt.UTC).replace(tzinfo=None), staged_id])

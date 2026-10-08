@@ -18,9 +18,14 @@ SERIES_ROUTES = {
     "WCRFPUS2": "petroleum/sum/sndw",   # Crude production
     "WCREXUS2": "petroleum/move/wkly",  # Crude exports
     "WCSSTUS1": "petroleum/stoc/wstk",  # Strategic Petroleum Reserve crude stocks (item 9)
+    "EMM_EPMR_PTE_NUS_DPG": "petroleum/pri/gnd",   # US regular gasoline retail, weekly (M1)
+    "EMD_EPD2D_PTE_NUS_DPG": "petroleum/pri/gnd",  # US No. 2 diesel retail, weekly (M1)
     "RCLC1": "petroleum/pri/fut",       # WTI futures, contract 1 (history only)
     "RCLC4": "petroleum/pri/fut",       # WTI futures, contract 4 (history only)
 }
+
+# Routes queried at daily frequency; everything else is weekly (retail fuel is weekly despite sitting under pri/)
+DAILY_ROUTES = {"petroleum/pri/spt", "petroleum/pri/fut"}
 
 # Series EIA stopped updating. Used for history only, never as a live gauge.
 HISTORY_ONLY = {"RCLC1", "RCLC4"}
@@ -37,7 +42,7 @@ def series_on_route(route):
 
 def latest_date(route, series_id):
     """The most recent date EIA has a value for. Being listed does not mean being current."""
-    frequency = "daily" if route.startswith("petroleum/pri") else "weekly"
+    frequency = "daily" if route in DAILY_ROUTES else "weekly"
     resp = eia.get(f"{route}/data/", {
         "frequency": frequency, "data[]": "value", "facets[series][]": series_id,
         "sort[0][column]": "period", "sort[0][direction]": "desc", "length": 1,

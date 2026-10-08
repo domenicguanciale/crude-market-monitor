@@ -36,10 +36,14 @@ CREATE TABLE IF NOT EXISTS disruption_event (
 -- Source: one citation backing one disruption event (filled in version 2)
 CREATE TABLE IF NOT EXISTS source (
     source_id       VARCHAR PRIMARY KEY,
-    event_id        VARCHAR REFERENCES disruption_event (event_id),
+    event_id        VARCHAR REFERENCES disruption_event (event_id),   -- empty for dataset sources
     publisher       VARCHAR,
     url             VARCHAR NOT NULL,
-    published_date  DATE
+    published_date  DATE,
+    accessed_date   DATE,             -- when access and terms were last confirmed (M1)
+    terms_note      VARCHAR,          -- short summary of the terms of use
+    publishable     BOOLEAN,          -- may it appear on the public pages?
+    kind            VARCHAR           -- 'dataset' (a data series) or 'citation' (backs one event)
 );
 
 -- Price series: daily spot prices, one row per benchmark per day
@@ -123,7 +127,16 @@ CREATE TABLE IF NOT EXISTS trader_positioning (
     small_long        DOUBLE,             -- nonreportable (small traders)
     small_short       DOUBLE,
     spec_net          DOUBLE,             -- calculated: spec_long - spec_short
-    spec_net_pct_oi   DOUBLE              -- calculated: spec_net / open_interest
+    spec_net_pct_oi   DOUBLE,             -- calculated: spec_net / open_interest
+    -- Disaggregated report (CFTC dataset 72hh-3qpy), from June 2006 only; empty before that (M1)
+    mm_long           DOUBLE,             -- managed money (hedge funds, CTAs) long
+    mm_short          DOUBLE,
+    mm_net            DOUBLE,             -- calculated: mm_long - mm_short
+    mm_net_pct_oi     DOUBLE,             -- calculated: mm_net / open_interest
+    prod_merc_long    DOUBLE,             -- producers, merchants, processors, users
+    prod_merc_short   DOUBLE,
+    swap_long         DOUBLE,             -- swap dealers
+    swap_short        DOUBLE
 );
 
 -- Staged event: a disruption event proposed by the AI news reader (item 8), waiting for review.
@@ -166,6 +179,14 @@ CREATE TABLE IF NOT EXISTS chokepoint_transit (
     PRIMARY KEY (facility_id, transit_date)
 );
 
+-- Retail fuel price: one US weekly average retail price for one product (EIA, M1).
+CREATE TABLE IF NOT EXISTS retail_fuel_price (
+    product         VARCHAR NOT NULL,     -- 'gasoline' (regular, all formulations) or 'diesel' (No. 2)
+    week_date       DATE    NOT NULL,     -- EIA's survey date (a Monday)
+    price           DOUBLE  NOT NULL,     -- dollars per gallon, including taxes
+    PRIMARY KEY (product, week_date)
+);
+
 -- Daily indicator: one value of one daily market or risk series on one day (items 6, 7, 10),
 -- e.g. 'OVX'. Which series may be published outside this machine is recorded in fred.INDICATORS.
 CREATE TABLE IF NOT EXISTS daily_indicator (
@@ -197,7 +218,12 @@ UPGRADES = [
     "ALTER TABLE weekly_reading ADD COLUMN IF NOT EXISTS spr_stocks DOUBLE",
     "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS hand_checked BOOLEAN DEFAULT FALSE",
     "ALTER TABLE disruption_event ADD COLUMN IF NOT EXISTS episode VARCHAR",
-]
+    "ALTER TABLE source ADD COLUMN IF NOT EXISTS accessed_date DATE",
+    "ALTER TABLE source ADD COLUMN IF NOT EXISTS terms_note VARCHAR",
+    "ALTER TABLE source ADD COLUMN IF NOT EXISTS publishable BOOLEAN",
+    "ALTER TABLE source ADD COLUMN IF NOT EXISTS kind VARCHAR",
+] + [f"ALTER TABLE trader_positioning ADD COLUMN IF NOT EXISTS {c} DOUBLE" for c in
+     ["mm_long", "mm_short", "mm_net", "mm_net_pct_oi", "prod_merc_long", "prod_merc_short", "swap_long", "swap_short"]]
 
 
 def connect(path=DB_PATH):

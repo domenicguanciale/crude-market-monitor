@@ -41,13 +41,18 @@ def gather(con):
                               utilization_position, spread, spr_stocks
                        FROM weekly_reading WHERE tightness_score IS NOT NULL ORDER BY week_ending DESC LIMIT 2""").df()
     s["week"], s["prev_week"] = w.iloc[0], w.iloc[1]
-    s["cot"] = con.execute("""SELECT report_date, released, spec_net, spec_net_pct_oi,
+    s["cot"] = con.execute("""SELECT report_date, released, spec_net, spec_net_pct_oi, mm_net, mm_net_pct_oi,
                                      spec_net - lag(spec_net) OVER (ORDER BY report_date) AS net_change
                               FROM trader_positioning ORDER BY report_date DESC LIMIT 1""").df().iloc[0]
     s["prices"] = con.execute("""PIVOT (SELECT price_date, benchmark, price FROM price_series
                                         WHERE benchmark IN ('WTI', 'Brent')) ON benchmark USING first(price)
                                  ORDER BY price_date DESC LIMIT 1""").df().iloc[0]
-    for name in ["OVX", "GPR", "NASDAQ", "UST10Y", "HY_SPREAD"]:
+    s["fuel"] = con.execute("""SELECT product, arg_max(price, week_date) AS price, max(week_date) AS d,
+                                      arg_max(price, week_date) - (SELECT price FROM retail_fuel_price r2
+                                          WHERE r2.product = r.product AND r2.week_date < max(r.week_date)
+                                          ORDER BY week_date DESC LIMIT 1) AS chg
+                               FROM retail_fuel_price r GROUP BY product ORDER BY product""").df()
+    for name in ["OVX", "GPR", "NASDAQ", "UST10Y", "HY_SPREAD", "USD_BROAD"]:
         s[name] = daily_latest(con, name)
     s["gpr_week"] = con.execute("""SELECT avg(value) FROM daily_indicator WHERE indicator = 'GPR'
                                    AND obs_date > (SELECT max(obs_date) FROM daily_indicator WHERE indicator = 'GPR')
@@ -91,12 +96,15 @@ def render(s, today):
         line("Oil volatility (OVX)", s["OVX"], ",.1f"),
         f"- **Large speculators in WTI (CFTC):** net {cot.spec_net:+,.0f} contracts, {cot.spec_net_pct_oi:.1%} of "
         f"open interest (week change {cot.net_change:+,.0f}), positions {cot.report_date:%b %-d}, "
-        f"released {cot.released:%b %-d}.",
+        f"released {cot.released:%b %-d}. Managed money net {cot.mm_net:+,.0f} ({cot.mm_net_pct_oi:.1%}).",
         f"- **Prediction markets tracked:** {s['markets']} open on Polymarket and Kalshi. "
         f"Unusual activity is reported in aggregate by `unusual_activity.py`.",
         "",
         "## Financial outcomes",
         line("10-year Treasury yield", s["UST10Y"], ".2f", "%"),
+        line("Broad dollar index", s["USD_BROAD"], ".2f"),
+        *[f"- **US retail {r.product}:** ${r.price:.3f}/gal week of {r.d:%b %-d} (week change {r.chg:+.3f})"
+          for r in s["fuel"].itertuples()],
         line("High-yield spread", s["HY_SPREAD"], ".2f", " points"),
         line("NASDAQ Composite", s["NASDAQ"], ",.0f"),
         "",
