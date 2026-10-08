@@ -21,6 +21,8 @@ STEPS = [
     ("Prediction markets", ["fetch_markets.py"]),
     ("Event tables", ["events.py"]),
     ("Showcase data (publishable series, hand-checked events)", ["export_showcase.py"]),
+    ("3D page data", ["export_3d.py"]),
+    ("3D lanes stay in open water", ["tools/check_lanes.py"]),
     ("Monday read", ["monday_summary.py"]),
 ]
 

@@ -377,6 +377,19 @@ This describes positioning. It is not a trading signal.
 
 Tested in light and dark mode and at phone width (no sideways scrolling), with the replay, the event zoom and the map exercised.
 
+## 3D view
+
+`docs/3d.html` ([live](https://domenicguanciale.github.io/crude-market-monitor/3d.html)) shows three linked views driven by one time slider. See `3D_VIEW.md` for details.
+- **Globe:** tanker traffic at six chokepoints as pillars, each with a ring at its own 2019 to 2025 median.
+- **Skyline:** thirty years of the weekly tightness score, with the 2020 switch.
+- **Hormuz close-up:** one moving ship per daily tanker transit on a real coastline.
+
+Data comes from `docs/data/viz3d.js`, written by `export_3d.py` under the same publishing rules as the showcase. `tools/check_lanes.py` confirms every drawn shipping lane stays in open water.
+
+**What the 3D page does not claim**
+- Ship positions, routes and directions are a display choice. The data has daily counts, not vessel tracks or origins, so every ship has the same colour.
+- Facility pins appear only for facilities tied to a hand-checked event.
+
 ## Ontology
 
 Each object type is its own DuckDB table. `weekly_reading`, `price_series`, `prediction_market` and `market_reading` are filled. `facility`, `disruption_event` and `source` wait for the hand-checked event table. Full detail is in [ONTOLOGY.md](ONTOLOGY.md).
@@ -542,6 +555,7 @@ Create a file named `.env` in the project folder with the lines `EIA_API_KEY=you
 .venv/bin/streamlit run app.py     # open the page
 .venv/bin/python -m unittest discover -s tests -t .   # run the tests
 .venv/bin/python update.py         # or: refresh everything above in order, then rebuild the showcase
+.venv/bin/python export_3d.py      # 3D page data; then tools/check_lanes.py
 ```
 
 Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
@@ -574,6 +588,9 @@ Re-run `fetch.py` and `calculate.py` after each Wednesday EIA release.
 | `chokepoints.py` | Daily ship transits through six oil chokepoints (IMF PortWatch) |
 | `news_reader.py` | AI news reader: stages events extracted by Claude; writes only after you approve |
 | `app.py` | The Streamlit page |
+| `export_3d.py` | Writes the 3D page data: publishable series, two versions of the score, coastline, schematic lanes |
+| `tools/check_lanes.py` | Confirms every schematic lane stays in open water |
+| `docs/3d.html` | The 3D page (Three.js 0.160.0 from jsDelivr) |
 | `export_showcase.py` | Writes the public showcase data: publishable series and hand-checked events only |
 | `docs/index.html` | The static showcase page (GitHub Pages) |
 | `update.py` | Runs every loader in order, then the showcase export and the Monday read |

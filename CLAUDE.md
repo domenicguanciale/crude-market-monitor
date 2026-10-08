@@ -135,6 +135,13 @@ Series: `RWTC` (WTI spot), `RBRTE` (Brent spot), `WCESTUS1` (crude stocks ex-SPR
 - The export refuses unpublishable series (tested). NASDAQ, HY_SPREAD, OVX and prediction market data never leave the machine. Only `hand_checked` events are exported.
 - The user decided to proceed on all remaining items without a layout review (Oct 5, 2026). NASDAQ and the HY spread were replaced on the page by publishable series because of licensing.
 
+## 3D page (added Oct 7, 2026)
+
+- `docs/3d.html` + `docs/data/viz3d.js` from `export_3d.py`. It has three views (globe, skyline, Hormuz close-up) on one date. `3D_VIEW.md` documents it. Same publishing rules as the showcase (`PUBLISHABLE` check, tested).
+- Honesty rules decided Oct 7: ships are one colour, because the data has no direction or origin. Routes are display weights, stated on the page. Facility pins are exported only for facilities tied to hand-checked events. The readout's Brent minus WTI is daily, labelled.
+- `Crude_Market_Monitor_3D.html` (single file, data inlined) is git-ignored because no script regenerates it.
+- The user's World Oil Simulation prompt (version 3D-2, milestones M0 to M10) is the next phase. M0 is the audit and plan; no new code until the user approves the plan.
+
 ## Pipeline
 
 `update.py` runs everything in order: `fetch.py` → `calculate.py` → `cot.py` → `fred.py` → `gpr.py` → `chokepoints.py` → `fetch_markets.py` → `events.py` → `export_showcase.py` → `monday_summary.py`. `check_routes.py` confirms routes; `app.py` is the local Streamlit app; `docs/` is the public page. Tests: `.venv/bin/python -m unittest discover -s tests -t .`
