@@ -10,6 +10,7 @@ import { createSkyline } from './scenes/skyline.js';
 import { createHormuz } from './scenes/hormuz.js';
 import { createPrice } from './scenes/price.js';
 import { createFlows, REGIONS } from './scenes/flows.js';
+import { createDashboard } from './dash/dashboard.js';
 
 const $ = (s) => document.querySelector(s);
 const data = makeData(window.VIZ3D);
@@ -83,12 +84,15 @@ function setCamera(view) {
   controls.update(); dirty = true;
 }
 
+// Lazy files are fetched once and shared (the flows view and the dashboard both use flows.json).
+const lazy = {};
+const fetchJSON = (url) => (lazy[url] ??= fetch(url).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }));
 const followAt = new THREE.Vector3(), _delta = new THREE.Vector3();
 function renderView(st, changed) {
   const sc = scenes[st.view];
   if (sc.lazy && !sc.loaded && !sc.fetching) {
     sc.fetching = true;
-    fetch(sc.lazy).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    fetchJSON(sc.lazy)
       .then((j) => { sc.setData(j); sc.applyTheme(); renderView(state.get(), ['data']); dirty = true; })
       .catch((e) => { sc.status.error = e.message; renderView(state.get(), ['data']); });
   }
@@ -155,6 +159,7 @@ function renderReadout(st) {
 
 // Every change to the state flows through here: the views never keep their own copy of the date.
 state.subscribe((st, changed) => {
+  if (changed.some((k) => ['day', 'keep2020'].includes(k))) dash.update(st);
   if (changed.includes('playing')) { $('#play').textContent = st.playing ? 'Pause' : 'Play'; $('#play').setAttribute('aria-label', st.playing ? 'Pause' : 'Play'); }
   if (changed.some((k) => ['day', 'view', 'keep2020', 'measure'].includes(k))) { renderReadout(st); renderView(st, changed); }
   if (!st.playing && changed.some((k) => ['day', 'view', 'keep2020', 'measure'].includes(k))) writeHash();
@@ -162,6 +167,12 @@ state.subscribe((st, changed) => {
 });
 
 function writeHash() { try { history.replaceState(null, '', toHash(state.get(), isoOf)); } catch (e) { /* file:// may refuse */ } }
+
+// ---------- the 2D dashboard: same state, loaded when it scrolls near the screen ----------
+const dash = createDashboard({ data, state, fetchJSON, goTo3D: (day) => {
+  state.set({ view: 'price', playing: false, day });
+  viewport.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+} });
 
 // ---------- timeline strips ----------
 const cursors = [];
@@ -221,6 +232,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) state
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   readTheme(); for (const s of Object.values(scenes)) s.applyTheme();
   const st = state.get(); renderView(st, ['view']); dirty = true;
+  dash.applyTheme();
 });
 
 // ---------- pointer interaction ----------
@@ -300,4 +312,4 @@ function probe() {
   const v = p.clone().project(camera);
   return { x: (v.x * 0.5 + 0.5) * viewport.clientWidth, y: (-v.y * 0.5 + 0.5) * viewport.clientHeight };
 }
-window.__viz = { state, data, scenes, camera, THREE, webgl: !!renderer, frames: () => frames, probe, redraw: () => { dirty = true; } };   // handle for the browser tests and the console
+window.__viz = { state, data, scenes, dash, camera, THREE, webgl: !!renderer, frames: () => frames, probe, redraw: () => { dirty = true; } };   // handle for the browser tests and the console

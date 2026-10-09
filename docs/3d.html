@@ -76,6 +76,32 @@
   .flowlists th { text-align: left; font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--grid); padding: 3px 4px; }
   .flowlists td { border-bottom: 1px solid var(--grid); padding: 3px 4px; }
   .flowlists .n { text-align: right; }
+  .headline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }
+  @media (max-width: 860px) { .headline { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 480px) { .headline { grid-template-columns: 1fr; } }
+  .hl { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .hl .k { font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .hl .v { font-weight: 650; font-size: 1.02rem; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .hl .d { font-size: 0.8rem; color: var(--ink-2); }
+  .dgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 860px) { .dgrid { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+  .panel.wide { grid-column: 1 / -1; }
+  .panel header { padding: 0; margin: 0; max-width: none; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .panel h3 { font-size: 0.98rem; margin: 0; }
+  .panel .tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .panel .tools button, .panel .tools select { min-height: 34px; padding: 4px 10px; font-size: 0.85rem; }
+  .panel .chart { min-height: 260px; }
+  .panel .summary { font-size: 0.9rem; margin: 6px 0 2px; }
+  .panel .src { font-size: 0.78rem; color: var(--muted); margin: 0; }
+  .spikes { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 8px; }
+  .spikes table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .spikes th { position: sticky; top: 0; background: var(--surface); text-align: left; border-bottom: 1px solid var(--axis); padding: 0; }
+  .spikes th button { border: 0; border-radius: 0; background: none; font-weight: 600; width: 100%; text-align: left; min-height: 36px; padding: 4px 8px; }
+  .spikes th:not(:has(button)) { padding: 4px 8px; font-weight: 600; }
+  .spikes td { border-bottom: 1px solid var(--grid); padding: 4px 8px; vertical-align: top; }
+  .spikes td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  button.link { border: 0; background: none; color: var(--accent); text-decoration: underline; padding: 0; min-height: 0; font-size: inherit; }
   .hint { position: absolute; left: 10px; bottom: 8px; font-size: 0.78rem; color: var(--ink-2); pointer-events: none; }
 
   .readout { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; align-self: start; }
@@ -169,7 +195,7 @@
         <canvas id="gl" role="img" aria-label="3D view"></canvas>
         <div id="labels" aria-hidden="true"></div>
         <div id="tip" role="tooltip"></div>
-        <div id="fallback">Your browser could not start 3D graphics. The numbers on the right and the two strips below still work.</div>
+        <div id="fallback">Your browser could not start 3D graphics. The numbers on the right, the strips below and the 2D dashboard further down still work.</div>
         <div class="hint" id="hint"></div>
         <div class="hznote" id="hzNote" hidden></div>
       </div>
@@ -226,6 +252,18 @@
     <div class="flowlists" id="flowLists" hidden></div>
   </section>
 
+  <section id="dash" aria-labelledby="h-dash">
+    <h2 id="h-dash">Dashboard: the same date in 2D</h2>
+    <p class="note">Every chart reads the date on the timeline above and draws it as a vertical line. Click a chart to move the date there. Each chart has a sentence that says what it shows on that date, and a CSV download of the data it plots. The shaded area is the 2026 Strait of Hormuz disruption, from February 28, 2026.</p>
+    <div class="headline" id="headline" aria-label="Latest readings"></div>
+    <div class="row"><label class="opt">Chart range <select id="dashRange" aria-label="Chart range"></select></label><span class="note" id="dashStatus" role="status"></span></div>
+    <div class="dgrid" id="dgrid"></div>
+    <h3 style="margin-top:18px">Spike catalog</h3>
+    <p class="note">Every move the fixed rules in spikes.py found, from EIA daily spot prices. Sort by a column, or press a date to see it in the 3D price terrain. A spike gets an explanation and a source only after it has been hand-checked. <span id="spikeCount"></span></p>
+    <div class="row"><label class="opt">Show <select id="spikeFilter" aria-label="Which spikes to list"><option value="episodes" selected>Episodes</option><option value="all">All, with one-day moves</option></select></label><button id="spikeCsv">Download CSV</button></div>
+    <div class="spikes" id="spikeBody"></div>
+  </section>
+
   <section aria-labelledby="h-how">
     <h2 id="h-how">How to read this</h2>
     <ul>
@@ -233,6 +271,7 @@
       <li><b>Price terrain.</b> Two walls, Brent at the back and WTI in front. The top edge is the daily spot price and the colour is the 20-day volatility. WTI's wall drops below the floor on April 20, 2020, the day it settled below zero. Pins mark spikes found by fixed rules. A pin explains a spike only after it has been hand-checked against its sources.</li>
       <li><b>Volatility.</b> Realized volatility is the standard deviation of daily price changes over 20 trading days, scaled to a year. The readout ranks it against every trading day since 1987.</li>
       <li><b>World flows.</b> Measured data only: crude production by country (EIA international data) and US crude imports by country of origin (EIA). Worldwide trade between other countries is not published in a source this page may republish, so it is not drawn.</li>
+      <li><b>The dashboard.</b> The same date in 2D charts: prices, volatility, the spread and the futures curve (history only, to April 2024), shipping, production and US imports, inventories against their five-year range, trader positioning, and money and fuel prices. Positioning readings use the date each report was released, so a chart never shows a report before the public could see it.</li>
       <li><b>Tanker pillars.</b> Height is the 7-day average of tankers per day. The ring on each pillar marks that chokepoint's own median for 2019 to 2025, so a pillar below its ring is running under its usual traffic. Counts come from satellite ship signals and miss ships that switch them off.</li>
       <li><b>Skyline.</b> One bar per week. Columns run Jan to Dec, rows run 1986 (back) to 2026 (front). In the tightness view, bars above the floor mean the US market is tight against the same week in the prior five years, bars below it mean loose. Bars after the selected date are faded.</li>
       <li><b>The 2020 switch.</b> The default leaves 2020 out of every five-year range, because the pandemic swelled stocks and widens the range. Keep it in and 2021 to 2025 read tighter. Same data, different method.</li>

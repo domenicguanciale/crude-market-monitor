@@ -438,6 +438,7 @@ Without measured totals and a measured starting pattern, the model would draw ro
 - **Globe:** tanker traffic at six chokepoints as pillars, each with a ring at its own 2019 to 2025 median.
 - **Skyline:** every week since 1986 by tightness score (with the 2020 switch), 20-day volatility or price level, so 2026 can be compared with every earlier year.
 - **Hormuz close-up:** one moving ship per daily tanker transit on a real coastline.
+- **2D dashboard (below the 3D stage):** eight linked charts on the same date (prices, volatility, spread and futures curve, shipping, production and US imports, inventories against the five-year range, trader positioning, rates, the dollar and retail fuel), a headline strip, and the sortable spike catalog. Each chart has a one-sentence summary and a CSV download.
 - **World flows:** measured crude production by country (Tier B) and US crude imports by origin (Tier A), month by month, with a "who sold, who bought" table. Modeled flows (Tier C) are not published.
 
 Data comes from `docs/data/viz3d.js`, written by `export_3d.py` under the same publishing rules as the showcase. `tools/check_lanes.py` confirms every drawn shipping lane stays in open water. Browser tests (`tests/browser/`, Playwright) check both pages in light and dark mode at desktop and phone width, and check readouts against the database. To open the 3D page locally, serve `docs/` (`.venv/bin/python -m http.server 8503 -d docs`), because it uses ES modules.

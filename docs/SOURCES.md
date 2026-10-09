@@ -23,7 +23,7 @@ Every data source the project uses or has checked, with its terms and whether it
 
 ## Checked for the World Oil Simulation
 
-In use from M1: the dollar index, EIA retail gasoline and diesel, and the CFTC disaggregated report. In use from M4: EIA US imports by origin (Tier A) and EIA international production by country (Tier B), plus Natural Earth label points. UN Comtrade and JODI stay local and unused: without them, modeled worldwide arcs (Tier C) are not published.
+In use from M1: the dollar index, EIA retail gasoline and diesel, and the CFTC disaggregated report. In use from M4: EIA US imports by origin (Tier A) and EIA international production by country (Tier B), plus Natural Earth label points. UN Comtrade and JODI stay local and unused: without them, modeled worldwide arcs (Tier C) are not published. Published on the 3D page from M6 and M7: the EIA series above, the FRED 10-year yield and dollar index, CFTC positioning (legacy and disaggregated), IMF PortWatch and the GPR index, each credited in the page footer and in each chart's source line.
 
 | Source | URL | What it would provide | Terms summary | Public | Checked |
 |---|---|---|---|---|---|

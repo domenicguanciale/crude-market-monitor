@@ -85,6 +85,25 @@ class TestExport3D(unittest.TestCase):
         rv = m["rv20"]["brent"]                                # trading days only, nothing carried over the weekend
         self.assertEqual(rv["v"], [1.0, 1.12])
 
+    def test_dash_block_columns_and_positioning(self):
+        con = db.connect(":memory:")
+        con.execute("""INSERT INTO weekly_reading (week_ending, crude_stocks, crude_low, crude_avg, crude_high, crude_position, spr_stocks, futures_gap_pct, curve_state)
+                       VALUES ('2024-04-05', 450000, 400000, 440000, 480000, 0.625, 365000, 0.021, 'backwardation')""")
+        con.execute("""INSERT INTO trader_positioning (report_date, released, week_ending, contract_code, open_interest, commercial_long, commercial_short, mm_net_pct_oi)
+                       VALUES ('2024-04-02', '2024-04-05', '2024-04-05', '067651', 1000, 300, 420, 0.15)""")
+        con.execute("INSERT INTO retail_fuel_price (product, week_date, price) VALUES ('gasoline', '2024-04-01', 3.6)")
+        idx = export_3d.day_index(pd.Timestamp("2024-04-10"))
+        x = export_3d.dash_block(con, idx)
+        self.assertEqual(x["weekly"]["d"], ["2024-04-05"])
+        self.assertEqual(x["weekly"]["crude_stocks"], [450000.0])
+        self.assertEqual(x["weekly"]["crude_position"], [0.625])
+        self.assertEqual(x["weekly"]["curve"], ["backwardation"])
+        self.assertEqual(x["cot"]["comm"], [-0.12])            # (300 - 420) / 1000
+        self.assertEqual(x["cot"]["released"], ["2024-04-05"])   # timing uses the release date
+        self.assertEqual(x["gasoline"], {"d": ["2024-04-01"], "v": [3.6]})
+        self.assertEqual(x["diesel"], {"d": [], "v": []})
+        self.assertIn("EIA", x["sources"]["weekly"].replace("U.S. Energy Information Administration", "EIA"))
+
     def test_size_budget(self):
         for name, limit_kb in export_3d.BUDGET_KB.items():
             path = export_3d.OUT.parent / name

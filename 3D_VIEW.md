@@ -12,6 +12,25 @@ Page: `docs/3d.html`. Data: `docs/data/viz3d.js`, written by `export_3d.py`. Cod
 
 The readout panel and the two strips under the canvas show Brent, WTI, the spread, the 10-year yield, the Geopolitical Risk Index and tanker counts for the selected date. The URL hash (`#v=hz&d=2026-03-25&k=1`) holds the view, the date and the 2020 switch, so a link opens where you left it. Any value the data does not have for a date (prices before Brent starts in 1987, scores before November 1995, tanker counts before 2019) shows as "n/a", never as an estimate.
 
+## The 2D dashboard (M7)
+
+Below the 3D stage, `docs/js/dash/dashboard.js` draws eight Plotly charts that read the same shared date: a vertical line marks it, and clicking a chart moves it. Plotly (the same pinned version as `index.html`) and `docs/data/dash.json` load only when the dashboard nears the screen; charts off screen catch up when they scroll in.
+
+| Panel | What it shows | Data |
+|---|---|---|
+| Headline strip | Latest US tightness score, Brent minus WTI, Brent volatility and its rank, Hormuz traffic share, each with its as-of date | `viz3d.js` |
+| Prices | Brent and WTI daily spot, log toggle (which hides the negative print, and says so), rule-detected surges and crashes, the zero line, the 2026 disruption shaded | `price_series`, `spike` |
+| Volatility | Brent 20-day and 60-day realized volatility, each ranked against all trading days since 1987 | `RV20_BRENT`, `RV60_BRENT` |
+| Spread and curve | Daily Brent minus WTI, and weekly WTI contract 1 against contract 4 (history only, ends April 5, 2024) | `price_series`, `weekly_reading.futures_gap_pct`, `curve_state` |
+| Shipping | Tankers at the six chokepoints as a share of each lane's 2019 to 2025 median | `chokepoint_transit` |
+| Sellers and buyers | Crude production and US imports by region group, monthly, stacked; the months from March 2026 shaded | `production_by_country`, `trade_flow` (tier A) |
+| Inventories and policy | Commercial crude, distillates or refinery use against the five-year range and average; the SPR as context | `weekly_reading` |
+| Positioning | Managed money (from June 2006) and commercial net positions in WTI futures, as a share of open interest | `trader_positioning` |
+| Money | 10-year Treasury yield, broad dollar index, US retail gasoline and diesel | `daily_indicator`, `retail_fuel_price` |
+| Spike catalog | All 445 rule-detected spikes, sortable, with rule, hand-check status and sources (only once checked). A date opens the 3D price terrain there | `spike` |
+
+Each chart has a one-sentence summary for the selected date (also its screen-reader label), its source, and a CSV download of the data it plots. CSV files start with two `#` lines (source and a not-advice note), so read them with `pandas.read_csv(path, comment="#")`. A range selector shows all years, since 2019, the 2026 disruption, or two years around the date. Colours are colour-blind safe (Okabe-Ito, blue and orange) and every second series also differs in line style.
+
 ## How the code is laid out (M5)
 
 | File | Job |
@@ -20,6 +39,7 @@ The readout panel and the two strips under the canvas show Brent, WTI, the sprea
 | `docs/js/data.js` | Reads `viz3d.js`. Each daily series is stored compactly as `{s: first day, v: values}` (format 2). `lastVal` carries a value forward at most 7 days, so a stale number never looks current |
 | `docs/js/scenes/price.js`, `skyline.js`, `globe.js`, `hormuz.js`, `flows.js` | One file per view. Each returns the same small interface: camera, legend, caption, `explain()` for the "What am I looking at?" box, `update(state)`, `pick` for hover, `probe` for the tests, and a text description for screen readers. The price terrain also has `follow` (the camera travels with the date) and `select` (a clicked pin jumps the date) |
 | `docs/js/scenes/earth.js` | The dotted Earth and the chokepoint pillars, shared by the globe and world flows |
+| `docs/js/dash/dashboard.js` | The 2D dashboard, headline strip and spike table (M7) |
 | `docs/js/main.js` | Builds the renderer, wires the buttons and slider to the state, and draws only when something changed |
 
 Playback speeds are 14, 35, 120 or 365 days a second. Jump buttons go to 1986, 2019 (PortWatch starts), the 2026 disruption, the 2026 Hormuz low, and today. Playback pauses when the tab is hidden.
@@ -40,7 +60,7 @@ The page uses ES modules, which browsers refuse to load from a `file://` address
 
 ## Tests
 
-`tests/browser/test_pages.py` runs both public pages in headless Chromium (Playwright): no console errors in light and dark mode at desktop and 390 px phone width, no sideways scroll, a non-blank canvas in all five views, a hover tooltip with its source in every view, a clicked spike pin jumping the date, flows.json loading only when its view opens, readouts (prices, score, volatility and its rank) equal to the database on fixed dates (2008-07-03, 2020-04-21, 2026-04-17), "n/a" before each series starts, and the state module's clamping, hash round trip and deterministic playback. `QA_SHOTS=1` saves screenshots to `docs/qa/`. The tests skip if Playwright is not installed.
+`tests/browser/test_pages.py` runs both public pages in headless Chromium (Playwright): no console errors in light and dark mode at desktop and 390 px phone width, no sideways scroll, a non-blank canvas in all five views, a hover tooltip with its source in every view, a clicked spike pin jumping the date, flows.json loading only when its view opens, every dashboard panel drawing with a sentence that matches the database (price, crude stocks, the positioning report and its release date, April 2026 US imports), the dashboard cursor following the date, CSV downloads with a source line, the spike table opening the 3D view, readouts (prices, score, volatility and its rank) equal to the database on fixed dates (2008-07-03, 2020-04-21, 2026-04-17), "n/a" before each series starts, and the state module's clamping, hash round trip and deterministic playback. `QA_SHOTS=1` saves screenshots to `docs/qa/`. The tests skip if Playwright is not installed.
 
 ## Limits to state if asked
 
@@ -57,7 +77,7 @@ The page uses ES modules, which browsers refuse to load from a `file://` address
 
 ## Publishing rules kept
 
-Same as `export_showcase.py`. Only series cleared for publishing are exported: EIA (including the volatility and spike catalog computed from EIA prices, and EIA production and US imports), FRED 10-year yield, IMF PortWatch (credit shown on the page), the Geopolitical Risk Index (CC BY), Natural Earth. Tier C modeled flows are never exported (`EXPORTED_TIERS`, tested). Spike explanations are exported only when hand-checked (tested). `BUDGET_KB` caps the gzipped size of each file (viz3d.js 1.5 MB, flows.json 512 KB; now about 232 KB and 45 KB), checked by a test. NASDAQ, the high-yield spread, OVX and prediction markets are not exported. Disruption events that are not hand-checked are not exported.
+Same as `export_showcase.py`. Only series cleared for publishing are exported: EIA (including the volatility and spike catalog computed from EIA prices, and EIA production and US imports), FRED 10-year yield, IMF PortWatch (credit shown on the page), the Geopolitical Risk Index (CC BY), Natural Earth. Tier C modeled flows are never exported (`EXPORTED_TIERS`, tested). Spike explanations are exported only when hand-checked (tested). `BUDGET_KB` caps the gzipped size of each file (viz3d.js 1.5 MB, flows.json and dash.json 512 KB each; now about 247 KB, 45 KB and 216 KB), checked by a test. NASDAQ, the high-yield spread, OVX and prediction markets are not exported. Disruption events that are not hand-checked are not exported.
 
 ## Rebuilding the land files (once)
 

@@ -3,7 +3,8 @@
 Run after the data scripts: .venv/bin/python export_3d.py
 The page is static (GitHub Pages): no server, no keys. It loads only this one file.
 The file is JavaScript (window.VIZ3D = {...}). A second file, docs/data/flows.json, is loaded only when the
-world flows view opens (lazy loading, M6), because most visitors never open it.
+world flows view opens (lazy loading, M6), because most visitors never open it. A third, docs/data/dash.json,
+holds the series only the 2D dashboard uses (M7) and is fetched when the dashboard scrolls into view.
 
 What goes in:
 - Daily tanker transits at the six chokepoints, 7-day average (IMF PortWatch, credit required)
@@ -44,8 +45,9 @@ import spikes
 HERE = Path(__file__).parent
 OUT = HERE / "docs" / "data" / "viz3d.js"
 FLOWS_OUT = HERE / "docs" / "data" / "flows.json"
+DASH_OUT = HERE / "docs" / "data" / "dash.json"
 FLOW_BASELINE_YEAR = 2025                # "change from before the disruption" = against the 2025 monthly average
-BUDGET_KB = {"viz3d.js": 1536, "flows.json": 512}   # gzipped size limits, checked by tests/test_export_3d.py
+BUDGET_KB = {"viz3d.js": 1536, "flows.json": 512, "dash.json": 512}   # gzipped size limits, checked by tests/test_export_3d.py
 LAND = HERE / "land_mask.json"          # made once from world-atlas land-110m, see tools/make_globe_mask.mjs
 REGION = HERE / "region_land.json"      # world-atlas land-10m clipped to the Gulf, see tools/make_region_land.mjs
 START = dt.date(1986, 1, 2)              # first EIA WTI spot price; the shared timeline starts here (M5)
@@ -63,6 +65,10 @@ PUBLISHABLE = {
     "US crude imports by origin, Tier A (EIA)": True,
     "Crude production by country, Tier B (EIA)": True,
     "Country label points (Natural Earth)": True,
+    "Broad US dollar index (FRED)": fred.INDICATORS["USD_BROAD"]["publishable"],
+    "US inventories, refinery use, SPR and futures curve (EIA)": True,
+    "US retail gasoline and diesel (EIA)": True,
+    "Trader positioning (CFTC Commitments of Traders)": True,
 }
 EXPORTED_TIERS = ("A",)                  # trade_flow tiers allowed out; "C" (modeled) must never appear here
 
@@ -263,12 +269,65 @@ def flows_block(con):
         "production": production, "production_base": prod_base,
         "us_imports": imports, "us_imports_base": imp_base,
         "unmapped_producers": sorted(set(prod.country) - set(places)),
+        "subregions": {iso: sub for iso, sub in con.execute("SELECT iso3, subregion FROM country").fetchall() if iso in used},
         "tiers": {"A": "Measured bilateral: EIA US crude oil imports by country of origin, thousand b/d",
                   "B": "Measured country totals: EIA international data, crude oil production, thousand b/d"},
         "sources": [["U.S. Energy Information Administration, petroleum/move/impcus", "https://www.eia.gov/opendata/browser/petroleum/move/impcus"],
                     ["U.S. Energy Information Administration, international", "https://www.eia.gov/opendata/browser/international"],
                     ["Natural Earth (label points, public domain)", "https://www.naturalearthdata.com/about/terms-of-use/"]],
     }
+
+
+def dash_block(con, idx):
+    """Series used only by the 2D dashboard (dash.json). Daily series are trading days only (nothing carried).
+    Weekly and positioning tables are columns: {"d": [dates], "name": [values], ...}."""
+    def daily(sql, params=(), digits=2):
+        df = con.execute(sql, list(params)).df()
+        return compact(aligned(df, "d", "v", idx, 0, digits)) if len(df) else {"s": 0, "v": []}
+    def r(v, digits):
+        return None if v is None or pd.isna(v) else round(float(v), digits)
+
+    out = {
+        "brent": daily("SELECT price_date d, price v FROM price_series WHERE benchmark = 'Brent' AND price_date >= ?", [START]),
+        "wti": daily("SELECT price_date d, price v FROM price_series WHERE benchmark = 'WTI' AND price_date >= ?", [START]),
+        "rv60": {b.lower(): daily("SELECT obs_date d, value v FROM daily_indicator WHERE indicator = ?", ["RV60_" + b.upper()], 4)
+                 for b in ("Brent", "WTI")},
+        "usd": daily("SELECT obs_date d, value v FROM daily_indicator WHERE indicator = 'USD_BROAD' AND obs_date >= ?", [START]),
+    }
+    w = con.execute("""SELECT week_ending, crude_stocks, crude_low, crude_avg, crude_high, crude_position,
+                              distillate_stocks, distillate_low, distillate_avg, distillate_high, distillate_position,
+                              utilization, utilization_low, utilization_avg, utilization_high, utilization_position,
+                              spr_stocks, futures_gap_pct, curve_state
+                       FROM weekly_reading WHERE week_ending >= ? ORDER BY week_ending""", [START]).df()
+    cols = {"d": [d.date().isoformat() for d in pd.to_datetime(w.week_ending)]}
+    for c in w.columns[1:]:
+        if c == "curve_state":
+            cols["curve"] = [None if pd.isna(v) else v for v in w[c]]
+        else:
+            cols[c] = [r(v, 4 if c.endswith(("position", "pct")) else 1) for v in w[c]]
+    out["weekly"] = cols
+    t = con.execute("""SELECT report_date, released, mm_net_pct_oi,
+                              (commercial_long - commercial_short) / open_interest AS comm_net_pct_oi
+                       FROM trader_positioning WHERE contract_code = '067651' ORDER BY report_date""").df()
+    out["cot"] = {"d": [d.date().isoformat() for d in pd.to_datetime(t.report_date)],
+                  "released": [d.date().isoformat() for d in pd.to_datetime(t.released)],
+                  "mm": [r(v, 4) for v in t.mm_net_pct_oi], "comm": [r(v, 4) for v in t.comm_net_pct_oi]}
+    for prod in ("gasoline", "diesel"):
+        f = con.execute("SELECT week_date, price FROM retail_fuel_price WHERE product = ? ORDER BY week_date", [prod]).df()
+        out[prod] = {"d": [d.date().isoformat() for d in pd.to_datetime(f.week_date)], "v": [r(v, 3) for v in f.price]}
+    out["sources"] = {
+        "prices": "U.S. Energy Information Administration, daily spot prices (RBRTE, RWTC)",
+        "volatility": "Computed from EIA daily spot prices (spikes.py)",
+        "weekly": "U.S. Energy Information Administration, Weekly Petroleum Status Report; five-year range per METHODS.md section 1",
+        "curve": "U.S. Energy Information Administration, NYMEX WTI futures contracts 1 and 4 (RCLC1, RCLC4), ends April 5, 2024",
+        "cot": "U.S. Commodity Futures Trading Commission, Commitments of Traders (legacy and disaggregated), WTI 067651",
+        "usd": "Board of Governors of the Federal Reserve System via FRED, Nominal Broad U.S. Dollar Index (DTWEXBGS)",
+        "ust10y": "Board of Governors of the Federal Reserve System via FRED, 10-year Treasury yield (DGS10)",
+        "retail": "U.S. Energy Information Administration, weekly US retail gasoline and diesel prices",
+        "shipping": "IMF PortWatch, daily tanker transits, 7-day average",
+        "flows": "U.S. Energy Information Administration, international data and US crude imports by origin",
+    }
+    return out
 
 
 def main():
@@ -292,14 +351,19 @@ def main():
         "weeks": weekly_block(con),
         "market": market_block(con, idx),
         "spikes": spike_block(con),
-        "credits": ["EIA (Brent, WTI, inventories, refinery utilization)", "IMF PortWatch (tanker transits)",
-                    "Federal Reserve via FRED (10-year Treasury yield)", "Caldara and Iacoviello (Geopolitical Risk Index, CC BY)",
+        "credits": ["EIA (Brent, WTI, inventories, refinery utilization, SPR, futures, retail fuel, production by country, US imports by origin)",
+                    "IMF PortWatch (tanker transits)", "Federal Reserve via FRED (10-year Treasury yield, broad dollar index)",
+                    "CFTC (Commitments of Traders)", "Caldara and Iacoviello (Geopolitical Risk Index, CC BY)",
                     "Natural Earth (land outlines and label points, public domain)"],
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("window.VIZ3D=" + json.dumps(data, separators=(",", ":")) + ";\n")
     print(f"Wrote {OUT.relative_to(HERE)} ({OUT.stat().st_size / 1024:.0f} KB): {len(idx)} days, "
           f"{len(data['chokepoints'])} chokepoints, {len(data['weeks'])} scored weeks, {len(data['spikes'])} spikes")
+    dash = dash_block(con, idx)
+    DASH_OUT.write_text(json.dumps(dash, separators=(",", ":")))
+    print(f"Wrote {DASH_OUT.relative_to(HERE)} ({DASH_OUT.stat().st_size / 1024:.0f} KB): {len(dash['weekly']['d'])} weeks, "
+          f"{len(dash['cot']['d'])} positioning reports")
     flows = flows_block(con)
     FLOWS_OUT.write_text(json.dumps(flows, separators=(",", ":")))
     print(f"Wrote {FLOWS_OUT.relative_to(HERE)} ({FLOWS_OUT.stat().st_size / 1024:.0f} KB): {len(flows['months'])} months, "

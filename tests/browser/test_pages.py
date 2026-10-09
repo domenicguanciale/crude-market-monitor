@@ -7,6 +7,8 @@ What they check, in plain language:
   each view shows a tooltip with its source. The world flows data loads only when that view opens.
 - Moving to a fixed date shows the same Brent, WTI, tightness and volatility numbers that are stored in the database.
 - Dates before a series starts say "n/a" instead of inventing a value.
+- The 2D dashboard loads when scrolled to, every panel draws, its sentence matches the database, the cursor follows
+  the date, the CSV downloads carry a source line, and a spike table date opens the 3D price terrain.
 - The shared state module (docs/js/state.js) clamps dates, round-trips the URL hash and plays back deterministically.
 
 The tests skip if Playwright or its Chromium is missing. Set QA_SHOTS=1 to also save screenshots in docs/qa/.
@@ -74,6 +76,19 @@ class PageTests(unittest.TestCase):
         page.wait_for_function("window.__viz && window.__viz.frames() > 0", timeout=20000)
         return page, errors
 
+    def open_dashboard(self, page, all_panels=True):
+        """Scroll to the dashboard, wait for Plotly and the data, then scroll each panel in so it draws."""
+        page.evaluate("document.getElementById('dash').scrollIntoView()")
+        page.wait_for_function("window.__viz.dash.ready", timeout=30000)
+        ids = page.evaluate("window.__viz.dash.panels.map((p) => p.id)")
+        for pid in (ids if all_panels else ids[:2]):
+            page.evaluate("document.getElementById('p-%s').scrollIntoView()" % pid)
+            page.wait_for_function("window.__viz.dash.panels.find((p) => p.id === '%s').built" % pid, timeout=15000)
+        return ids
+
+    def summary(self, page, pid):
+        return page.evaluate("window.__viz.dash.panels.find((p) => p.id === '%s').sum.textContent" % pid)
+
     def shot(self, page, name):
         if os.environ.get("QA_SHOTS") == "1":
             QA.mkdir(exist_ok=True)
@@ -94,6 +109,9 @@ class PageTests(unittest.TestCase):
                     with self.subTest(page=path, size=size, scheme=scheme):
                         if path == "3d.html":
                             page, errors = self.open_3d(size=size, scheme=scheme)
+                            self.open_dashboard(page, all_panels=False)
+                            self.shot(page, "3d_dashboard_%s_%s" % (size, scheme))
+                            page.evaluate("window.scrollTo(0, 0)"); page.evaluate("window.__viz.redraw()"); page.wait_for_timeout(300)
                         else:
                             page, errors = self.open(path, size=size, scheme=scheme)
                             page.wait_for_timeout(1500)        # Plotly charts draw after the JSON arrives
@@ -209,6 +227,60 @@ class PageTests(unittest.TestCase):
         page.click("#jStart")
         self.assertEqual(self.text(page, "#rDate"), "Jan 2, 1986")
         self.assertEqual(page.evaluate("location.hash"), "#v=price&d=1986-01-02")
+        self.assertEqual(errors, [])
+
+    # ---------- the 2D dashboard ----------
+    @unittest.skipUnless(DB.exists(), "database not built")
+    def test_dashboard_panels_match_database(self):
+        import duckdb
+        con = duckdb.connect(str(DB), read_only=True)
+        self.addCleanup(con.close)
+        page, errors = self.open_3d("#v=price&d=2026-04-17")
+        ids = self.open_dashboard(page)
+        self.assertEqual(ids, ["price", "vol", "spread", "ship", "flows", "inv", "cot", "money"])
+        for pid in ids:
+            with self.subTest(panel=pid):
+                self.assertTrue(page.evaluate("!!document.querySelector('#p-%s .main-svg')" % pid), "no chart drawn")
+                self.assertTrue(self.summary(page, pid).strip())
+        brent = con.execute("SELECT price FROM price_series WHERE benchmark = 'Brent' AND price_date = '2026-04-17'").fetchone()[0]
+        self.assertIn("Brent was $%.2f" % brent, self.summary(page, "price"))
+        crude = con.execute("SELECT crude_stocks FROM weekly_reading WHERE week_ending = '2026-04-17'").fetchone()[0]
+        self.assertIn("%.1f million barrels" % (crude / 1000), self.summary(page, "inv"))
+        rep_date, rel = con.execute("SELECT report_date, released FROM trader_positioning WHERE released <= '2026-04-17' "
+                                    "ORDER BY report_date DESC LIMIT 1").fetchone()
+        self.assertIn("measured on %s (released %s" % (rep_date.isoformat(), rel.isoformat()), self.summary(page, "cot"))
+        imports = con.execute("SELECT sum(volume_kbd) FROM trade_flow WHERE tier = 'A' AND importer = 'USA' AND period = '2026-04-01'").fetchone()[0]
+        self.assertIn("were {:,} thousand b/d".format(round(imports)), self.summary(page, "flows"))
+        # the cursor follows the shared date
+        page.evaluate("document.getElementById('p-price').scrollIntoView()")
+        page.evaluate("window.__viz.state.set({day: window.__viz.data.dayOf('2008-07-03')})")
+        page.wait_for_function("document.querySelector('#p-price .chart').layout.shapes[0].x0 === '2008-07-03'", timeout=5000)
+        self.assertIn("Jul 3, 2008", self.summary(page, "price"))
+        self.assertEqual(errors, [])
+
+    def test_dashboard_csv_and_spike_table(self):
+        page, errors = self.open_3d("#v=globe&d=2026-04-17")
+        self.open_dashboard(page, all_panels=False)
+        page.evaluate("document.getElementById('p-price').scrollIntoView()")
+        with page.expect_download() as dl:
+            page.click("#p-price .csv")
+        text = Path(dl.value.path()).read_text()
+        lines = text.splitlines()
+        self.assertTrue(lines[0].startswith("# Source: U.S. Energy Information Administration"))
+        self.assertEqual(lines[2], "date,brent_usd_bbl,wti_usd_bbl")
+        self.assertTrue(any(l.startswith("2026-04-17,") for l in lines))
+        with page.expect_download() as dl:
+            page.click("#spikeCsv")
+        self.assertIn("spike_id,benchmark,kind", Path(dl.value.path()).read_text())
+        # pressing a date in the spike table opens the 3D price terrain on that date
+        first = page.locator("#spikeBody button.link").first
+        day = first.get_attribute("data-day")
+        first.click()
+        page.wait_for_function("location.hash === '#v=price&d=%s'" % day, timeout=5000)
+        # sorting by move puts the largest rise first
+        page.click("[data-sort=pct]")
+        top = page.locator("#spikeBody tbody tr").first.locator("td.n").inner_text()
+        self.assertTrue(top.startswith("+"), top)
         self.assertEqual(errors, [])
 
     # ---------- the shared state module ----------
